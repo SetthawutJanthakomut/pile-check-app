@@ -1,0 +1,265 @@
+import { useEffect, useMemo, useState } from 'react';
+import { supabase } from '../lib/supabase';
+import { computeAll, bsCheck, parseIncline } from '../lib/calculations';
+
+const fmt = (v, d = 3) => (v == null || Number.isNaN(v) ? '—' : Number(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }));
+const num = (s) => (s === '' || s == null ? null : Number(s));
+
+const EMPTY_PT = { n: '', e: '', el: '' };
+
+export default function FormPage({ session }) {
+  const [piles, setPiles] = useState([]);
+  const [benchmarks, setBenchmarks] = useState([]);
+  const [tol, setTol] = useState({ positionM: 0.075, tiltDeg: 1.0, residualM: 0.02, bsM: 0.01 });
+
+  const [pileId, setPileId] = useState('');
+  const [stnId, setStnId] = useState('');
+  const [bsId, setBsId] = useState('');
+  const [bsN, setBsN] = useState('');
+  const [bsE, setBsE] = useState('');
+  const [p1, setP1] = useState({ ...EMPTY_PT });
+  const [p2, setP2] = useState({ ...EMPTY_PT });
+  const [p3, setP3] = useState({ ...EMPTY_PT });
+  const [seabed, setSeabed] = useState('');
+  const [share, setShare] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState(null);
+
+  useEffect(() => {
+    (async () => {
+      const [{ data: p }, { data: b }, { data: s }] = await Promise.all([
+        supabase.from('piles').select('*').order('pile_no'),
+        supabase.from('benchmarks').select('*').eq('active', true).order('name'),
+        supabase.from('project_settings').select('*'),
+      ]);
+      setPiles(p ?? []);
+      setBenchmarks(b ?? []);
+      if (s) {
+        const m = Object.fromEntries(s.map((r) => [r.key, r.value]));
+        setTol({
+          positionM: m.tol_position_m ?? 0.075,
+          tiltDeg: m.tol_tilt_deg ?? 1.0,
+          residualM: m.tol_residual_m ?? 0.02,
+          bsM: m.tol_bs_m ?? 0.01,
+        });
+      }
+    })();
+  }, []);
+
+  const pile = piles.find((p) => p.id === pileId) ?? null;
+  const stn = benchmarks.find((b) => b.id === stnId) ?? null;
+  const bs = benchmarks.find((b) => b.id === bsId) ?? null;
+
+  const bsResult = useMemo(() => {
+    if (!bs || bsN === '' || bsE === '') return null;
+    return bsCheck({ n: num(bsN), e: num(bsE) }, { n: bs.northing, e: bs.easting }, tol.bsM);
+  }, [bs, bsN, bsE, tol.bsM]);
+
+  const ready = pile && stn && p1.n && p1.e && p1.el && p2.n && p2.e && p2.el;
+
+  const results = useMemo(() => {
+    if (!ready) return null;
+    try {
+      return computeAll({
+        design: {
+          pn: pile.coordinate_pn, pe: pile.coordinate_pe, cutoff: pile.pile_top_level,
+          diaMm: pile.dia_mm, incline: pile.incline, batterAzDeg: pile.batter_bearing_deg,
+          lengthM: pile.length_m, coatingLengthM: pile.coating_length_m,
+          seaBedLevel: pile.sea_bed_level,
+        },
+        stn: { n: stn.northing, e: stn.easting },
+        p1: { n: num(p1.n), e: num(p1.e), el: num(p1.el) },
+        p2: { n: num(p2.n), e: num(p2.e), el: num(p2.el) },
+        p3: p3.n && p3.e && p3.el ? { n: num(p3.n), e: num(p3.e), el: num(p3.el) } : null,
+        measuredSeabed: num(seabed),
+        tol,
+      });
+    } catch {
+      return null;
+    }
+  }, [ready, pile, stn, p1, p2, p3, seabed, tol]);
+
+  async function save() {
+    if (!results) return;
+    setSaving(true);
+    const { data: rec, error } = await supabase.from('asbuilt_records').insert({
+      pile_id: pile.id,
+      station_id: stn.id,
+      backsight_id: bs?.id ?? null,
+      bs_measured_n: num(bsN), bs_measured_e: num(bsE),
+      measured_seabed: num(seabed),
+      surveyor: session.user.email,
+      is_shared: share,
+      results,
+    }).select().single();
+    if (error) { setToast({ type: 'err', msg: error.message }); setSaving(false); return; }
+
+    const pts = [
+      { record_id: rec.id, point_no: 1, northing: num(p1.n), easting: num(p1.e), elevation: num(p1.el) },
+      { record_id: rec.id, point_no: 2, northing: num(p2.n), easting: num(p2.e), elevation: num(p2.el) },
+    ];
+    if (p3.n && p3.e && p3.el) pts.push({ record_id: rec.id, point_no: 3, northing: num(p3.n), easting: num(p3.e), elevation: num(p3.el) });
+    const { error: e2 } = await supabase.from('survey_points').insert(pts);
+    setSaving(false);
+    if (e2) { setToast({ type: 'err', msg: e2.message }); return; }
+
+    setToast({ type: 'ok', msg: `Pile ${pile.pile_no} saved${share ? ' · shared to team' : ' · private draft'}` });
+    setP1({ ...EMPTY_PT }); setP2({ ...EMPTY_PT }); setP3({ ...EMPTY_PT }); setSeabed('');
+    setTimeout(() => setToast(null), 4000);
+  }
+
+  const inc = pile ? parseIncline(pile.incline) : null;
+
+  return (
+    <div className="page">
+      {/* ---------- setup ---------- */}
+      <section className="card">
+        <h2 className="card-title">Pile &amp; station · เข็มและจุดตั้งกล้อง</h2>
+        <label className="field">
+          <span>Pile No.</span>
+          <select value={pileId} onChange={(e) => setPileId(e.target.value)}>
+            <option value="">— select pile —</option>
+            {piles.map((p) => <option key={p.id} value={p.id}>{p.pile_no} · {p.incline}</option>)}
+          </select>
+        </label>
+        {pile && (
+          <div className="design-strip mono">
+            <div><span>N</span>{fmt(pile.coordinate_pn)}</div>
+            <div><span>E</span>{fmt(pile.coordinate_pe)}</div>
+            <div><span>Cut-off</span>{fmt(pile.pile_top_level)}</div>
+            <div><span>Ø</span>{pile.dia_mm} mm</div>
+          </div>
+        )}
+        <label className="field">
+          <span>Station (STN)</span>
+          <select value={stnId} onChange={(e) => setStnId(e.target.value)}>
+            <option value="">— select station —</option>
+            {benchmarks.filter((b) => b.type === 'STN').map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+        </label>
+      </section>
+
+      {/* ---------- BS check ---------- */}
+      <section className="card">
+        <h2 className="card-title">BS check · เช็คหมุดหลัง <em>shoot BS before piles</em></h2>
+        <label className="field">
+          <span>Backsight</span>
+          <select value={bsId} onChange={(e) => setBsId(e.target.value)}>
+            <option value="">— select BS —</option>
+            {benchmarks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+        </label>
+        <div className="grid2">
+          <label className="field"><span>Measured N</span>
+            <input inputMode="decimal" value={bsN} onChange={(e) => setBsN(e.target.value)} placeholder="0.000" /></label>
+          <label className="field"><span>Measured E</span>
+            <input inputMode="decimal" value={bsE} onChange={(e) => setBsE(e.target.value)} placeholder="0.000" /></label>
+        </div>
+        {bsResult && (
+          <div className={`stamp ${bsResult.pass ? 'pass' : 'fail'}`}>
+            {bsResult.pass ? 'TRUE' : 'FALSE'} <small>diff {fmt(bsResult.diff, 4)} m{!bsResult.pass && ' — re-setup station'}</small>
+          </div>
+        )}
+      </section>
+
+      {/* ---------- points ---------- */}
+      <PointCard title="Point 1 · Top จุดสูงสุด" pt={p1} set={setP1} />
+      <PointCard title="Point 2 · Bottom จุดต่ำสุด" pt={p2} set={setP2} />
+      <PointCard title="Point 3 · Mid กลาง (cross-check, optional)" pt={p3} set={setP3} optional />
+
+      <section className="card">
+        <h2 className="card-title">Seabed re-survey · วัด seabed ใหม่ <em>blank = use design</em></h2>
+        <label className="field"><span>Measured seabed EL.</span>
+          <input inputMode="decimal" value={seabed} onChange={(e) => setSeabed(e.target.value)}
+                 placeholder={pile?.sea_bed_level != null ? `design: ${pile.sea_bed_level}` : '0.000'} /></label>
+      </section>
+
+      {/* ---------- readout ---------- */}
+      {results && (
+        <section className="readout mono">
+          <div className="readout-head">AS-BUILT @ DESIGN CUT-OFF ({fmt(results.asbuiltEl)})</div>
+          <div className="readout-grid">
+            <div><span>N</span>{fmt(results.asbuiltN)}</div>
+            <div><span>E</span>{fmt(results.asbuiltE)}</div>
+          </div>
+          <div className="readout-grid">
+            <div><span>Diff N</span>{fmt(results.diffN)} <b>{results.dirN}</b></div>
+            <div><span>Diff E</span>{fmt(results.diffE)} <b>{results.dirE}</b></div>
+          </div>
+          <div className="verdict-row">
+            <div className={`stamp big ${results.posCheck === 'OK' ? 'pass' : 'fail'}`}>
+              {results.posCheck}
+              <small>total {fmt(results.totalDev)} m / tol {tol.positionM}</small>
+            </div>
+            <div className={`stamp ${results.slopeCheck === 'OK' ? 'pass' : 'fail'}`}>
+              slope {results.slopeCheck}
+              <small>1:{fmt(results.slope, 2)} vs {inc?.vertical ? 'VERT' : `1:${inc.ratio}`}</small>
+            </div>
+            {results.p3Check && (
+              <div className={`stamp ${results.p3Check === 'OK' ? 'pass' : 'fail'}`}>
+                P3 {results.p3Check}
+                <small>res {fmt(results.residual, 4)} m</small>
+              </div>
+            )}
+          </div>
+
+          <details className="more">
+            <summary>Toe · Batter Az · Coating</summary>
+            <div className="readout-grid">
+              <div><span>Toe N</span>{fmt(results.toeN)}</div>
+              <div><span>Toe E</span>{fmt(results.toeE)}</div>
+              <div><span>Toe Z</span>{fmt(results.toeZ)}</div>
+            </div>
+            <div className="readout-grid">
+              <div><span>Batter Az</span>{fmt(results.asbuiltBatterAz)}°</div>
+              <div><span>Design</span>{results.designBatterAz == null ? '— (VERT)' : `${fmt(results.designBatterAz)}°`}</div>
+              <div><span>Diff Az</span>{results.diffBatterAz == null ? '—' : `${fmt(results.diffBatterAz)}°`}</div>
+            </div>
+            {results.coatingBottomEl != null && (
+              <div className="readout-grid">
+                <div><span>Coat. bottom</span>{fmt(results.coatingBottomEl)}</div>
+                <div><span>Seabed ({results.seabedSource})</span>{fmt(results.seabedUsed)}</div>
+                <div><span>Margin</span>{fmt(results.marginToSeabed)} <b>{results.marginLabel}</b></div>
+              </div>
+            )}
+            {results.seabedDiff != null && (
+              <div className="readout-grid">
+                <div><span>Seabed diff</span>{fmt(results.seabedDiff)} <b>{results.seabedDiffLabel}</b></div>
+              </div>
+            )}
+          </details>
+        </section>
+      )}
+
+      {/* ---------- save ---------- */}
+      <div className="savebar">
+        <label className="share-toggle">
+          <input type="checkbox" checked={share} onChange={(e) => setShare(e.target.checked)} />
+          <span>Share to team · แชร์ให้ทีม</span>
+        </label>
+        <button className="btn-save" disabled={!results || saving} onClick={save}>
+          {saving ? 'Saving…' : 'Save record'}
+        </button>
+      </div>
+
+      {toast && <div className={`toast ${toast.type}`}>{toast.msg}</div>}
+    </div>
+  );
+}
+
+function PointCard({ title, pt, set, optional = false }) {
+  return (
+    <section className="card">
+      <h2 className="card-title">{title}</h2>
+      <div className="grid3">
+        <label className="field"><span>Northing</span>
+          <input inputMode="decimal" value={pt.n} onChange={(e) => set({ ...pt, n: e.target.value })} placeholder="0.0000" /></label>
+        <label className="field"><span>Easting</span>
+          <input inputMode="decimal" value={pt.e} onChange={(e) => set({ ...pt, e: e.target.value })} placeholder="0.0000" /></label>
+        <label className="field"><span>Elev.</span>
+          <input inputMode="decimal" value={pt.el} onChange={(e) => set({ ...pt, el: e.target.value })} placeholder="0.000" /></label>
+      </div>
+      {optional && <p className="hint">เว้นว่างได้ / leave blank to skip cross-check</p>}
+    </section>
+  );
+}
