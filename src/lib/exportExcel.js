@@ -22,9 +22,3 @@ export function exportRecordsToExcel(columns, rows) {
   const date = new Date().toISOString().slice(0, 10);
   XLSX.writeFile(wb, `AsBuilt_Records_${date}.xlsx`);
 }
-
-export function exportBenchmarksToExcel(columns, rows) {
-  const wb = buildWorkbook(columns, rows, 'Benchmarks');
-  const date = new Date().toISOString().slice(0, 10);
-  XLSX.writeFile(wb, `Benchmarks_${date}.xlsx`);
-}

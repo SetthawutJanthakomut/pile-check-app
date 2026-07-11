@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import DataTable from '../components/DataTable';
 import { num } from '../lib/format';
-import { exportBenchmarksToExcel } from '../lib/exportExcel';
+import { CSV_COLUMNS, parseCsv, exportBenchmarksToCsv } from '../lib/benchmarksCsv';
 
 const COLUMNS = [
   { key: 'name', label: 'Name · ชื่อหมุด', type: 'text', width: 120 },
@@ -76,22 +76,22 @@ export default function BenchmarksTable() {
     const file = e.target.files?.[0];
     if (!file) return;
     const text = await file.text();
-    const lines = text.split(/\r?\n/).filter((l) => l.trim() !== '');
-    if (lines.length < 2) { setImportMsg('Empty file · ไฟล์ว่างเปล่า'); e.target.value = ''; return; }
+    const table = parseCsv(text);
+    if (table.length < 2) { setImportMsg('Empty file · ไฟล์ว่างเปล่า'); e.target.value = ''; return; }
 
-    const headers = lines[0].split(',').map((h) => h.trim().toLowerCase().replace(/\s+/g, '_'));
-    const colKeys = new Set(COLUMNS.map((c) => c.key));
+    const headers = table[0].map((h) => h.trim().toLowerCase().replace(/\s+/g, '_'));
+    const colKeys = new Set(CSV_COLUMNS);
     const colByKey = Object.fromEntries(COLUMNS.map((c) => [c.key, c]));
 
-    const parsed = lines.slice(1).map((line) => {
-      const cells = line.split(',').map((c) => c.trim());
+    const parsed = table.slice(1).map((cells) => {
       const obj = {};
       headers.forEach((h, i) => {
         if (!colKeys.has(h)) return;
         const col = colByKey[h];
-        if (col.type === 'number') obj[h] = num(cells[i]);
-        else if (col.type === 'boolean') obj[h] = /^(true|1|yes)$/i.test(cells[i] ?? '');
-        else obj[h] = cells[i] === '' ? null : cells[i];
+        const cell = (cells[i] ?? '').trim();
+        if (col.type === 'number') obj[h] = num(cell);
+        else if (col.type === 'boolean') obj[h] = /^(true|1|yes)$/i.test(cell);
+        else obj[h] = cell === '' ? null : cell;
       });
       return obj;
     }).filter((o) => o.name);
@@ -124,8 +124,8 @@ export default function BenchmarksTable() {
           {importing ? 'Importing…' : 'Import CSV · นำเข้า CSV'}
         </button>
         <input ref={fileRef} type="file" accept=".csv" hidden onChange={handleImport} />
-        <button className="btn-secondary" disabled={!rows.length} onClick={() => exportBenchmarksToExcel(COLUMNS, rows)}>
-          Export Excel · ส่งออกเอ็กเซล
+        <button className="btn-secondary" disabled={!rows.length} onClick={() => exportBenchmarksToCsv(rows)}>
+          Export CSV · ส่งออก CSV
         </button>
         {importMsg && <div className="import-msg">{importMsg}</div>}
       </div>
