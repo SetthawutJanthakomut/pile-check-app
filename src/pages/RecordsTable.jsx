@@ -69,7 +69,7 @@ export default function RecordsTable({ session }) {
         .from('asbuilt_records')
         .select('*, piles(pile_no), station:benchmarks!station_id(name), survey_points(point_no, northing, easting, elevation)')
         .order('measured_at', { ascending: false });
-      if (mineOnly) q = q.eq('created_by', session.user.id);
+      if (mineOnly && session) q = q.eq('created_by', session.user.id);
       const { data, error } = await q;
       if (cancelled) return;
       if (error) setToast({ type: 'err', msg: error.message });
@@ -77,7 +77,7 @@ export default function RecordsTable({ session }) {
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [mineOnly, session.user.id]);
+  }, [mineOnly, session?.user?.id]);
 
   const rows = useMemo(() => {
     const filtered = records.filter((r) =>
@@ -136,10 +136,12 @@ export default function RecordsTable({ session }) {
           value={filterPile}
           onChange={(e) => setFilterPile(e.target.value)}
         />
-        <label className="share-toggle">
-          <input type="checkbox" checked={mineOnly} onChange={(e) => setMineOnly(e.target.checked)} />
-          <span>Mine only · เฉพาะของฉัน</span>
-        </label>
+        {session && (
+          <label className="share-toggle">
+            <input type="checkbox" checked={mineOnly} onChange={(e) => setMineOnly(e.target.checked)} />
+            <span>Mine only · เฉพาะของฉัน</span>
+          </label>
+        )}
         <button className="btn-secondary" disabled={!rows.length} onClick={() => exportRecordsToExcel(COLUMNS, rows)}>
           Export Excel · ส่งออกเอ็กเซล
         </button>
@@ -151,7 +153,7 @@ export default function RecordsTable({ session }) {
           onSave={handleSave}
           actionsLabel="Delete · ลบ"
           renderRowActions={(row) => (
-            row.created_by === session.user.id
+            session && row.created_by === session.user.id
               ? <button className="link danger" onClick={() => handleDelete(row.id)}>Delete · ลบ</button>
               : null
           )}

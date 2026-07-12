@@ -8,7 +8,8 @@ const num = (s) => (s === '' || s == null ? null : Number(s));
 
 const EMPTY_PT = { n: '', e: '', el: '' };
 
-export default function FormPage({ session }) {
+export default function FormPage({ session, role }) {
+  const canSave = role === 'admin' || role === 'recorder';
   const [piles, setPiles] = useState([]);
   const [benchmarks, setBenchmarks] = useState([]);
   const [tol, setTol] = useState({ positionM: 0.075, tiltDeg: 1.0, residualM: 0.02, bsM: 0.01 });
@@ -183,15 +184,17 @@ export default function FormPage({ session }) {
       {results && <ResultReadout results={results} p1El={p1.el} tol={tol} inc={inc} />}
 
       {/* ---------- save ---------- */}
-      <div className="savebar">
-        <label className="share-toggle">
-          <input type="checkbox" checked={share} onChange={(e) => setShare(e.target.checked)} />
-          <span>Share to team · แชร์ให้ทีม</span>
-        </label>
-        <button className="btn-save" disabled={!results || saving} onClick={save}>
-          {saving ? 'Saving…' : 'Save record'}
-        </button>
-      </div>
+      {canSave && (
+        <div className="savebar">
+          <label className="share-toggle">
+            <input type="checkbox" checked={share} onChange={(e) => setShare(e.target.checked)} />
+            <span>Share to team · แชร์ให้ทีม</span>
+          </label>
+          <button className="btn-save" disabled={!results || saving} onClick={save}>
+            {saving ? 'Saving…' : 'Save record'}
+          </button>
+        </div>
+      )}
 
       {toast && <div className={`toast ${toast.type}`}>{toast.msg}</div>}
     </div>

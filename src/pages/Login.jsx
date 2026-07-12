@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 
-export default function Login() {
+export default function Login({ onClose }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [mode, setMode] = useState('signin');
@@ -21,30 +21,30 @@ export default function Login() {
       setErr(error.message);
     }
     else if (mode === 'signup') setErr('Check your email to confirm, then sign in.');
+    else onClose?.();
   }
 
   return (
-    <div className="login-wrap">
-      <div className="login-card">
-        <div className="brand">
-          <span className="brand-mark">⌖</span>
-          <h1>Pile Check</h1>
-          <p>As-built pile check by total station</p>
-        </div>
-        <form onSubmit={submit}>
-          <label className="field"><span>Email</span>
-            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></label>
-          <label className="field"><span>Password</span>
-            <input type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} /></label>
-          {err && <p className="form-err">{err}</p>}
-          <button className="btn-save" disabled={busy}>
-            {busy ? '…' : mode === 'signin' ? 'Sign in' : 'Create account'}
-          </button>
-        </form>
-        <button className="link" onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')}>
-          {mode === 'signin' ? 'New user? Create account' : 'Have an account? Sign in'}
-        </button>
+    <div className="login-card">
+      <div className="brand">
+        <span className="brand-mark">⌖</span>
+        <h1>Pile Check</h1>
+        <p>As-built pile check by total station</p>
       </div>
+      <form onSubmit={submit}>
+        <label className="field"><span>Email</span>
+          <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></label>
+        <label className="field"><span>Password</span>
+          <input type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} /></label>
+        {err && <p className="form-err">{err}</p>}
+        <button className="btn-save" disabled={busy}>
+          {busy ? '…' : mode === 'signin' ? 'Sign in' : 'Create account'}
+        </button>
+      </form>
+      <button className="link" onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')}>
+        {mode === 'signin' ? 'New user? Create account' : 'Have an account? Sign in'}
+      </button>
+      <button className="link" onClick={onClose}>Close · ปิด</button>
     </div>
   );
 }

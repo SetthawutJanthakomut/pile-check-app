@@ -15,7 +15,9 @@ const PAGES = [
 
 export default function App() {
   const [session, setSession] = useState(undefined);
+  const [role, setRole] = useState(null);
   const [page, setPage] = useState('form');
+  const [showLogin, setShowLogin] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -23,16 +25,27 @@ export default function App() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (!session) { setRole(null); return; }
+    supabase.from('profiles').select('role').eq('id', session.user.id).single()
+      .then(({ data }) => setRole(data?.role ?? null));
+  }, [session]);
+
   if (session === undefined) return null;
-  if (!session) return <Login />;
 
   return (
     <>
       <header className="topbar">
         <span className="brand-mark">⌖</span>
         <strong>Pile Check</strong>
-        <span className="topbar-user">{session.user.email}</span>
-        <button className="link" onClick={() => supabase.auth.signOut()}>Sign out</button>
+        <span className="topbar-user">
+          {session ? `${session.user.email} · ${role ?? '…'}` : ''}
+        </span>
+        {session ? (
+          <button className="link" onClick={() => supabase.auth.signOut()}>Sign out</button>
+        ) : (
+          <button className="link" onClick={() => setShowLogin(true)}>Sign in</button>
+        )}
       </header>
       <nav className="subnav">
         {PAGES.map((p) => (
@@ -45,10 +58,17 @@ export default function App() {
           </button>
         ))}
       </nav>
-      {page === 'form' && <FormPage session={session} />}
-      {page === 'piles' && <PilesTable session={session} />}
-      {page === 'benchmarks' && <BenchmarksTable session={session} />}
-      {page === 'records' && <RecordsTable session={session} />}
+      <div style={{ display: page === 'form' ? '' : 'none' }}><FormPage session={session} role={role} /></div>
+      <div style={{ display: page === 'piles' ? '' : 'none' }}><PilesTable role={role} /></div>
+      <div style={{ display: page === 'benchmarks' ? '' : 'none' }}><BenchmarksTable role={role} /></div>
+      <div style={{ display: page === 'records' ? '' : 'none' }}><RecordsTable session={session} /></div>
+      {showLogin && (
+        <div className="modal-backdrop" onClick={() => setShowLogin(false)}>
+          <div onClick={(e) => e.stopPropagation()}>
+            <Login onClose={() => setShowLogin(false)} />
+          </div>
+        </div>
+      )}
     </>
   );
 }

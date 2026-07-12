@@ -14,7 +14,8 @@ const COLUMNS = [
   { key: 'note', label: 'Note · หมายเหตุ', type: 'text', width: 180 },
 ];
 
-export default function BenchmarksTable() {
+export default function BenchmarksTable({ role }) {
+  const canWrite = role === 'admin';
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
@@ -119,11 +120,13 @@ export default function BenchmarksTable() {
     <div className="page-wide">
       <div className="page-toolbar">
         <h1>Benchmarks · หมุดอ้างอิง</h1>
-        <button className="btn-secondary" onClick={addRow}>+ Add row · เพิ่มแถว</button>
-        <button className="btn-secondary" disabled={importing} onClick={() => fileRef.current?.click()}>
-          {importing ? 'Importing…' : 'Import CSV · นำเข้า CSV'}
-        </button>
-        <input ref={fileRef} type="file" accept=".csv" hidden onChange={handleImport} />
+        {canWrite && <button className="btn-secondary" onClick={addRow}>+ Add row · เพิ่มแถว</button>}
+        {canWrite && (
+          <button className="btn-secondary" disabled={importing} onClick={() => fileRef.current?.click()}>
+            {importing ? 'Importing…' : 'Import CSV · นำเข้า CSV'}
+          </button>
+        )}
+        {canWrite && <input ref={fileRef} type="file" accept=".csv" hidden onChange={handleImport} />}
         <button className="btn-secondary" disabled={!rows.length} onClick={() => exportBenchmarksToCsv(rows)}>
           Export CSV · ส่งออก CSV
         </button>
@@ -134,10 +137,11 @@ export default function BenchmarksTable() {
           columns={COLUMNS}
           rows={rows}
           onSave={handleSave}
-          actionsLabel="Delete · ลบ"
-          renderRowActions={(row) => (
+          readOnly={!canWrite}
+          actionsLabel={canWrite ? 'Delete · ลบ' : undefined}
+          renderRowActions={canWrite ? (row) => (
             <button className="link danger" onClick={() => handleDelete(row)}>Delete · ลบ</button>
-          )}
+          ) : undefined}
         />
       )}
       {toast && <div className={`toast ${toast.type}`}>{toast.msg}</div>}

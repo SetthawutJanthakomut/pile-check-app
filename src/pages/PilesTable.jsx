@@ -20,7 +20,8 @@ const COLUMNS = [
   { key: 'note', label: 'Note · หมายเหตุ', type: 'text', width: 160 },
 ];
 
-export default function PilesTable() {
+export default function PilesTable({ role }) {
+  const canWrite = role === 'admin';
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
@@ -123,11 +124,13 @@ export default function PilesTable() {
     <div className="page-wide">
       <div className="page-toolbar">
         <h1>Design Piles · เข็มออกแบบ</h1>
-        <button className="btn-secondary" onClick={addRow}>+ Add row · เพิ่มแถว</button>
-        <button className="btn-secondary" disabled={importing} onClick={() => fileRef.current?.click()}>
-          {importing ? 'Importing…' : 'Import CSV · นำเข้า CSV'}
-        </button>
-        <input ref={fileRef} type="file" accept=".csv" hidden onChange={handleImport} />
+        {canWrite && <button className="btn-secondary" onClick={addRow}>+ Add row · เพิ่มแถว</button>}
+        {canWrite && (
+          <button className="btn-secondary" disabled={importing} onClick={() => fileRef.current?.click()}>
+            {importing ? 'Importing…' : 'Import CSV · นำเข้า CSV'}
+          </button>
+        )}
+        {canWrite && <input ref={fileRef} type="file" accept=".csv" hidden onChange={handleImport} />}
         <button className="btn-secondary" disabled={!rows.length} onClick={() => exportPilesToCsv(rows)}>
           Export CSV · ส่งออก CSV
         </button>
@@ -138,10 +141,11 @@ export default function PilesTable() {
           columns={COLUMNS}
           rows={rows}
           onSave={handleSave}
-          actionsLabel="Delete · ลบ"
-          renderRowActions={(row) => (
+          readOnly={!canWrite}
+          actionsLabel={canWrite ? 'Delete · ลบ' : undefined}
+          renderRowActions={canWrite ? (row) => (
             <button className="link danger" onClick={() => handleDelete(row)}>Delete · ลบ</button>
-          )}
+          ) : undefined}
         />
       )}
       {toast && <div className={`toast ${toast.type}`}>{toast.msg}</div>}

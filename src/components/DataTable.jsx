@@ -9,8 +9,9 @@ import { fmt, verdictClass } from '../lib/format';
  * rows: array of plain objects, each with an `id`.
  * onSave(rowId, key, value): async — persists a single field. Throw to trigger revert + toast.
  * renderRowActions(row): optional — trailing actions cell (e.g. delete button).
+ * readOnly: when true, cells are not editable (view-only grid).
  */
-export default function DataTable({ columns, rows, onSave, renderRowActions, actionsLabel }) {
+export default function DataTable({ columns, rows, onSave, renderRowActions, actionsLabel, readOnly = false }) {
   const [editing, setEditing] = useState(null); // { rowId, key }
   const [editValue, setEditValue] = useState('');
   const [overrides, setOverrides] = useState({}); // `${rowId}:${key}` -> optimistic value
@@ -26,7 +27,7 @@ export default function DataTable({ columns, rows, onSave, renderRowActions, act
   }
 
   function startEdit(row, col) {
-    if (col.type === 'readonly' || col.type === 'boolean' || col.type === 'select') return;
+    if (readOnly || col.type === 'readonly' || col.type === 'boolean' || col.type === 'select') return;
     const v = valueOf(row, col);
     setEditValue(v == null ? '' : String(v));
     setEditing({ rowId: row.id, key: col.key });
@@ -114,7 +115,7 @@ export default function DataTable({ columns, rows, onSave, renderRowActions, act
                 if (col.type === 'boolean') {
                   return (
                     <td key={col.key} className="dt-cell-bool">
-                      <input type="checkbox" checked={!!value} onChange={() => save(row, col, !value)} />
+                      <input type="checkbox" checked={!!value} disabled={readOnly} onChange={() => save(row, col, !value)} />
                     </td>
                   );
                 }
@@ -122,7 +123,7 @@ export default function DataTable({ columns, rows, onSave, renderRowActions, act
                 if (col.type === 'select') {
                   return (
                     <td key={col.key}>
-                      <select value={value ?? ''} onChange={(e) => save(row, col, e.target.value)}>
+                      <select value={value ?? ''} disabled={readOnly} onChange={(e) => save(row, col, e.target.value)}>
                         {col.options.map((o) => (
                           <option key={o} value={o}>{o}</option>
                         ))}
