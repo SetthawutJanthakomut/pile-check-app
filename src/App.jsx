@@ -5,12 +5,14 @@ import FormPage from './pages/FormPage';
 import PilesTable from './pages/PilesTable';
 import BenchmarksTable from './pages/BenchmarksTable';
 import RecordsTable from './pages/RecordsTable';
+import SettingsPage from './pages/SettingsPage';
 
 const PAGES = [
   { key: 'form', label: 'Form · แบบฟอร์ม' },
   { key: 'piles', label: 'Design Piles · เข็มออกแบบ' },
   { key: 'benchmarks', label: 'Benchmarks · หมุดอ้างอิง' },
   { key: 'records', label: 'Records · บันทึก' },
+  { key: 'settings', label: 'Settings · ตั้งค่า', adminOnly: true },
 ];
 
 export default function App() {
@@ -48,7 +50,7 @@ export default function App() {
         )}
       </header>
       <nav className="subnav">
-        {PAGES.map((p) => (
+        {PAGES.filter((p) => !p.adminOnly || role === 'admin').map((p) => (
           <button
             key={p.key}
             className={page === p.key ? 'active' : ''}
@@ -58,10 +60,13 @@ export default function App() {
           </button>
         ))}
       </nav>
-      <div style={{ display: page === 'form' ? '' : 'none' }}><FormPage session={session} role={role} /></div>
+      <div style={{ display: page === 'form' ? '' : 'none' }}><FormPage session={session} role={role} active={page === 'form'} /></div>
       <div style={{ display: page === 'piles' ? '' : 'none' }}><PilesTable role={role} /></div>
       <div style={{ display: page === 'benchmarks' ? '' : 'none' }}><BenchmarksTable role={role} /></div>
       <div style={{ display: page === 'records' ? '' : 'none' }}><RecordsTable session={session} /></div>
+      {role === 'admin' && (
+        <div style={{ display: page === 'settings' ? '' : 'none' }}><SettingsPage /></div>
+      )}
       {showLogin && (
         <div className="modal-backdrop" onClick={() => setShowLogin(false)}>
           <div onClick={(e) => e.stopPropagation()}>

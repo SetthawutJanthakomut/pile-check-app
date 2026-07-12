@@ -7,15 +7,17 @@ const fmt = (v, d = 3) => (v == null || Number.isNaN(v) ? '—' : Number(v).toLo
 const num = (s) => (s === '' || s == null ? null : Number(s));
 
 const EMPTY_PT = { n: '', e: '', el: '' };
+const NEW_STN = '__new__';
 
-export default function FormPage({ session, role }) {
+export default function FormPage({ session, role, active }) {
   const canSave = role === 'admin' || role === 'recorder';
   const [piles, setPiles] = useState([]);
   const [benchmarks, setBenchmarks] = useState([]);
   const [tol, setTol] = useState({ positionM: 0.075, tiltDeg: 1.0, residualM: 0.02, bsM: 0.01 });
 
   const [pileId, setPileId] = useState('');
-  const [stnId, setStnId] = useState('');
+  const [stnSelect, setStnSelect] = useState('');
+  const [stnName, setStnName] = useState('');
   const [bsId, setBsId] = useState('');
   const [bsN, setBsN] = useState('');
   const [bsE, setBsE] = useState('');
@@ -23,19 +25,30 @@ export default function FormPage({ session, role }) {
   const [p2, setP2] = useState({ ...EMPTY_PT });
   const [p3, setP3] = useState({ ...EMPTY_PT });
   const [seabed, setSeabed] = useState('');
+  const [stage, setStage] = useState('');
+  const [note, setNote] = useState('');
   const [share, setShare] = useState(true);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
 
   useEffect(() => {
     (async () => {
-      const [{ data: p }, { data: b }, { data: s }] = await Promise.all([
+      const [{ data: p }, { data: b }] = await Promise.all([
         supabase.from('piles').select('*').order('pile_no'),
         supabase.from('benchmarks').select('*').eq('active', true).order('name'),
-        supabase.from('project_settings').select('*'),
       ]);
       setPiles(p ?? []);
       setBenchmarks(b ?? []);
+    })();
+  }, []);
+
+  // Re-fetch tolerances every time the Form tab becomes active, so edits made
+  // on the Settings page take effect without a full app reload (App.jsx keeps
+  // every page mounted and just toggles visibility, so mount-only fetch isn't enough).
+  useEffect(() => {
+    if (!active) return;
+    (async () => {
+      const { data: s } = await supabase.from('project_settings').select('*');
       if (s) {
         const m = Object.fromEntries(s.map((r) => [r.key, r.value]));
         setTol({
@@ -46,10 +59,18 @@ export default function FormPage({ session, role }) {
         });
       }
     })();
-  }, []);
+  }, [active]);
 
   const pile = piles.find((p) => p.id === pileId) ?? null;
-  const stn = benchmarks.find((b) => b.id === stnId) ?? null;
+  const stnMatch = stnSelect && stnSelect !== NEW_STN
+    ? benchmarks.find((b) => b.id === stnSelect) ?? null
+    : null;
+  const stnIsNew = stnSelect === NEW_STN && stnName.trim() !== '';
+  // A brand-new station has no known coordinates yet; use the BS-measured
+  // shot as its position (same values that will seed the new benchmark row).
+  const stnCoord = stnMatch
+    ? { n: stnMatch.northing, e: stnMatch.easting }
+    : (stnIsNew && bsN !== '' && bsE !== '' ? { n: num(bsN), e: num(bsE) } : null);
   const bs = benchmarks.find((b) => b.id === bsId) ?? null;
 
   const bsResult = useMemo(() => {
@@ -57,7 +78,7 @@ export default function FormPage({ session, role }) {
     return bsCheck({ n: num(bsN), e: num(bsE) }, { n: bs.northing, e: bs.easting }, tol.bsM);
   }, [bs, bsN, bsE, tol.bsM]);
 
-  const ready = pile && stn && p1.n && p1.e && p1.el && p2.n && p2.e && p2.el;
+  const ready = pile && stnCoord && p1.n && p1.e && p1.el && p2.n && p2.e && p2.el;
 
   const results = useMemo(() => {
     if (!ready) return null;
@@ -71,7 +92,7 @@ export default function FormPage({ session, role }) {
           toePn: pile.toe_pn, toePe: pile.toe_pe,
           pileToeLevel: pile.pile_toe_level,
         },
-        stn: { n: stn.northing, e: stn.easting },
+        stn: stnCoord,
         p1: { n: num(p1.n), e: num(p1.e), el: num(p1.el) },
         p2: { n: num(p2.n), e: num(p2.e), el: num(p2.el) },
         p3: p3.n && p3.e && p3.el ? { n: num(p3.n), e: num(p3.e), el: num(p3.el) } : null,
@@ -81,15 +102,33 @@ export default function FormPage({ session, role }) {
     } catch {
       return null;
     }
-  }, [ready, pile, stn, p1, p2, p3, seabed, tol]);
+  }, [ready, pile, stnCoord, p1, p2, p3, seabed, tol]);
 
   async function save() {
     if (!results) return;
     setSaving(true);
+
+    let stationId = stnMatch?.id ?? null;
+    let createdStation = false;
+    if (stnIsNew) {
+      const { data: newBm, error: bmErr } = await supabase.from('benchmarks').insert({
+        name: stnName.trim(),
+        northing: num(bsN),
+        easting: num(bsE),
+        elevation: null,
+        type: 'STN',
+      }).select().single();
+      if (bmErr) { setToast({ type: 'err', msg: bmErr.message }); setSaving(false); return; }
+      stationId = newBm.id;
+      createdStation = true;
+      setBenchmarks((bms) => [...bms, newBm]);
+      setStnSelect(newBm.id);
+    }
+
     const measuredTime = new Date().toISOString();
     const { data: rec, error } = await supabase.from('asbuilt_records').insert({
       pile_id: pile.id,
-      station_id: stn.id,
+      station_id: stationId,
       backsight_id: bs?.id ?? null,
       bs_measured_n: num(bsN), bs_measured_e: num(bsE),
       measured_seabed: num(seabed),
@@ -97,6 +136,8 @@ export default function FormPage({ session, role }) {
       is_shared: share,
       results,
       measured_time: measuredTime,
+      pile_stage: stage || null,
+      note: note.trim() === '' ? null : note.trim(),
     }).select().single();
     if (error) { setToast({ type: 'err', msg: error.message }); setSaving(false); return; }
 
@@ -109,8 +150,8 @@ export default function FormPage({ session, role }) {
     setSaving(false);
     if (e2) { setToast({ type: 'err', msg: e2.message }); return; }
 
-    setToast({ type: 'ok', msg: `Pile ${pile.pile_no} saved${share ? ' · shared to team' : ' · private draft'} · ${new Date(measuredTime).toLocaleString()}` });
-    setP1({ ...EMPTY_PT }); setP2({ ...EMPTY_PT }); setP3({ ...EMPTY_PT }); setSeabed('');
+    setToast({ type: 'ok', msg: `Pile ${pile.pile_no} saved${share ? ' · shared to team' : ' · private draft'}${createdStation ? ' · new station created · สร้างหมุดใหม่' : ''} · ${new Date(measuredTime).toLocaleString()}` });
+    setP1({ ...EMPTY_PT }); setP2({ ...EMPTY_PT }); setP3({ ...EMPTY_PT }); setSeabed(''); setNote('');
     setTimeout(() => setToast(null), 4000);
   }
 
@@ -138,10 +179,45 @@ export default function FormPage({ session, role }) {
         )}
         <label className="field">
           <span>Station (STN)</span>
-          <select value={stnId} onChange={(e) => setStnId(e.target.value)}>
+          <select value={stnSelect} onChange={(e) => setStnSelect(e.target.value)}>
             <option value="">— select station —</option>
             {benchmarks.filter((b) => b.type === 'STN').map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            <option value={NEW_STN}>+ Add new station · เพิ่มจุดใหม่</option>
           </select>
+        </label>
+        {stnSelect === NEW_STN && (
+          <label className="field">
+            <span>New station name · ชื่อจุดใหม่</span>
+            <input
+              value={stnName}
+              onChange={(e) => setStnName(e.target.value)}
+              placeholder="Type new station name"
+            />
+          </label>
+        )}
+        {stnIsNew && (
+          <p className="hint">
+            {canSave
+              ? 'New station — will be created on save · หมุดใหม่ จะถูกสร้างเมื่อบันทึก'
+              : 'Unknown station · ไม่พบหมุดนี้'}
+          </p>
+        )}
+      </section>
+
+      {/* ---------- stage & note ---------- */}
+      <section className="card">
+        <h2 className="card-title">Stage &amp; note · ช่วงและหมายเหตุ</h2>
+        <label className="field">
+          <span>Stage · ช่วง</span>
+          <select value={stage} onChange={(e) => setStage(e.target.value)}>
+            <option value="">— select stage —</option>
+            <option value="before">Before driving · ก่อนตอก</option>
+            <option value="after">After driving · หลังตอก</option>
+          </select>
+        </label>
+        <label className="field">
+          <span>Note · หมายเหตุ</span>
+          <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional note · หมายเหตุ (ถ้ามี)" />
         </label>
       </section>
 
@@ -181,7 +257,7 @@ export default function FormPage({ session, role }) {
       </section>
 
       {/* ---------- readout ---------- */}
-      {results && <ResultReadout results={results} p1El={p1.el} tol={tol} inc={inc} />}
+      {results && <ResultReadout results={results} p1El={p1.el} tol={tol} inc={inc} stage={stage} note={note} />}
 
       {/* ---------- save ---------- */}
       {canSave && (

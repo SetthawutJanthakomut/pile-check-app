@@ -1,10 +1,22 @@
 import { fmt, num } from '../lib/format';
 
+const STAGE_LABEL = {
+  before: 'Before driving · ก่อนตอก',
+  after: 'After driving · หลังตอก',
+};
+
 // Read-only as-built summary panel. Shared by the live Form and the Records detail view.
 // `tol` and `inc` are optional — when omitted, the tolerance/design-slope hints are left out.
-export default function ResultReadout({ results, p1El, tol, inc }) {
+// `stage` and `note` are optional — when omitted, the stage/note block is left out.
+export default function ResultReadout({ results, p1El, tol, inc, stage, note }) {
   return (
     <section className="readout mono">
+      {(stage || note) && (
+        <div className="readout-notes">
+          {stage && <div className="stage-tag">{STAGE_LABEL[stage] ?? stage}</div>}
+          {note && <div className="note-text">{note}</div>}
+        </div>
+      )}
       <div className="readout-caption">{new Date().toLocaleString()}</div>
       <div className="readout-head">AS-BUILT @ DESIGN CUT-OFF ({fmt(results.asbuiltEl)})</div>
       <div className="readout-grid">

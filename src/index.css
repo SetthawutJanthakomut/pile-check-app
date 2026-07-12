@@ -89,6 +89,10 @@ body {
   letter-spacing: 0.01em;
 }
 .card-title em { font-style: normal; font-weight: 400; font-size: 12px; color: var(--ink-soft); margin-left: 6px; }
+.movement-summary summary { cursor: pointer; }
+.movement-row { padding: 10px 0; border-top: 1px solid var(--line); margin-top: 4px; }
+.movement-row:first-of-type { border-top: none; margin-top: 0; }
+.movement-pile { font: 700 14px var(--mono); margin-bottom: 4px; }
 
 /* ---------- fields ---------- */
 .field { display: block; margin-bottom: 10px; }
@@ -208,6 +212,14 @@ body {
   font-size: 11px; letter-spacing: 0.14em; color: var(--lcd-dim);
   border-bottom: 1px solid #1f3446; padding-bottom: 6px; margin-bottom: 10px;
 }
+.readout-notes { margin-bottom: 10px; }
+.stage-tag {
+  display: inline-block;
+  font: 600 12px var(--font); letter-spacing: 0.04em;
+  color: var(--accent); background: rgba(232, 89, 12, 0.15);
+  border-radius: 6px; padding: 4px 10px; margin-bottom: 6px;
+}
+.note-text { font: 400 13px var(--font); color: var(--lcd-text); white-space: pre-wrap; }
 .readout-grid {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 8px 12px; margin-bottom: 10px;
@@ -263,12 +275,19 @@ body {
   border-radius: var(--radius);
   padding: 16px;
 }
+.modal-panel-wide { max-width: 980px; }
 .modal-header {
   display: flex; align-items: flex-start; justify-content: space-between;
   gap: 12px; margin-bottom: 12px;
 }
 .modal-header h2 { margin: 0 0 2px; font-size: 18px; }
 .modal-panel .btn-secondary { width: 100%; margin-top: 4px; }
+.modal-columns { display: flex; flex-direction: column; gap: 12px; }
+.modal-column { margin-bottom: 0; }
+@media (min-width: 720px) {
+  .modal-columns { flex-direction: row; align-items: flex-start; }
+  .modal-column { flex: 1 1 0; }
+}
 
 /* ---------- toast ---------- */
 .toast {

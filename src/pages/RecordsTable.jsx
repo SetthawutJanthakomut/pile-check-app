@@ -4,15 +4,21 @@ import DataTable from '../components/DataTable';
 import { exportRecordsToExcel } from '../lib/exportExcel';
 import RecordDetailModal from '../components/RecordDetailModal';
 
+const STAGE_SHORT = { before: 'ก่อนตอก', after: 'หลังตอก' };
+
+function fmtDateTime(measuredAt, measuredTime) {
+  const t = measuredTime ? new Date(measuredTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '';
+  return `${measuredAt ?? '—'} ${t}`.trim();
+}
+
 const COLUMNS = [
   { key: 'no', label: 'No.', type: 'readonly', width: 44 },
   { key: 'pile_no', label: 'Pile No. · เลขเข็ม', type: 'readonly', width: 90 },
+  { key: 'pile_stage', label: 'Stage · ระยะ', type: 'readonly', width: 80, render: (v) => STAGE_SHORT[v] ?? '—' },
+  { key: 'note', label: 'Note · หมายเหตุ', type: 'readonly', width: 160 },
   {
     key: '_datetime', label: 'Measured · วันเวลา', type: 'readonly', width: 140,
-    render: (_v, row) => {
-      const t = row.measured_time ? new Date(row.measured_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '';
-      return `${row.measured_at ?? '—'} ${t}`.trim();
-    },
+    render: (_v, row) => fmtDateTime(row.measured_at, row.measured_time),
   },
   { key: 'surveyor', label: 'Surveyor · ผู้สำรวจ', type: 'text', width: 140 },
   { key: 'stn_name', label: 'STN · จุดตั้งกล้อง', type: 'readonly', width: 80 },
@@ -79,31 +85,42 @@ export default function RecordsTable({ session }) {
     return () => { cancelled = true; };
   }, [mineOnly, session?.user?.id]);
 
-  const rows = useMemo(() => {
-    const filtered = records.filter((r) =>
-      !filterPile || (r.piles?.pile_no || '').toLowerCase().includes(filterPile.toLowerCase()));
-    return filtered.map((r, i) => {
-      const pts = {};
-      (r.survey_points || []).forEach((p) => { pts[p.point_no] = p; });
-      const res = r.results || {};
-      return {
-        id: r.id,
-        no: i + 1,
-        pile_no: r.piles?.pile_no ?? '—',
-        measured_at: r.measured_at,
-        measured_time: r.measured_time,
-        surveyor: r.surveyor,
-        stn_name: r.station?.name ?? '—',
-        p1n: pts[1]?.northing, p1e: pts[1]?.easting, p1el: pts[1]?.elevation,
-        p2n: pts[2]?.northing, p2e: pts[2]?.easting, p2el: pts[2]?.elevation,
-        p3n: pts[3]?.northing, p3e: pts[3]?.easting, p3el: pts[3]?.elevation,
-        measured_seabed: r.measured_seabed,
-        is_shared: r.is_shared,
-        created_by: r.created_by,
-        ...res,
-      };
+  const filtered = useMemo(() => records.filter((r) =>
+    !filterPile || (r.piles?.pile_no || '').toLowerCase().includes(filterPile.toLowerCase())), [records, filterPile]);
+
+  const rows = useMemo(() => filtered.map((r, i) => {
+    const pts = {};
+    (r.survey_points || []).forEach((p) => { pts[p.point_no] = p; });
+    const res = r.results || {};
+    return {
+      id: r.id,
+      no: i + 1,
+      pile_no: r.piles?.pile_no ?? '—',
+      measured_at: r.measured_at,
+      measured_time: r.measured_time,
+      surveyor: r.surveyor,
+      stn_name: r.station?.name ?? '—',
+      p1n: pts[1]?.northing, p1e: pts[1]?.easting, p1el: pts[1]?.elevation,
+      p2n: pts[2]?.northing, p2e: pts[2]?.easting, p2el: pts[2]?.elevation,
+      p3n: pts[3]?.northing, p3e: pts[3]?.easting, p3el: pts[3]?.elevation,
+      measured_seabed: r.measured_seabed,
+      is_shared: r.is_shared,
+      created_by: r.created_by,
+      pile_stage: r.pile_stage,
+      note: r.note,
+      ...res,
+    };
+  }), [filtered]);
+
+  // Group flattened rows by pile_no so the detail modal can show before+after side by side.
+  const rowsByPile = useMemo(() => {
+    const map = {};
+    rows.forEach((r) => {
+      if (!map[r.pile_no]) map[r.pile_no] = {};
+      map[r.pile_no][r.pile_stage] = r;
     });
-  }, [records, filterPile]);
+    return map;
+  }, [rows]);
 
   async function handleSave(rowId, key, value) {
     const { error } = await supabase.from('asbuilt_records').update({ [key]: value }).eq('id', rowId);
@@ -160,7 +177,12 @@ export default function RecordsTable({ session }) {
         />
       )}
       {selectedRow && (
-        <RecordDetailModal row={selectedRow} columns={COLUMNS} onClose={() => setSelectedRow(null)} />
+        <RecordDetailModal
+          row={selectedRow}
+          pair={rowsByPile[selectedRow.pile_no]}
+          columns={COLUMNS}
+          onClose={() => setSelectedRow(null)}
+        />
       )}
       {toast && <div className={`toast ${toast.type}`}>{toast.msg}</div>}
     </div>
