@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { localdb, replaceAll } from '../lib/localdb';
+import { queueRecord, pushOne, isNetworkError } from '../lib/sync';
 import { computeAll, bsCheck, parseIncline } from '../lib/calculations';
 import ResultReadout from '../components/ResultReadout';
 
@@ -169,12 +170,20 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
     }
   }, [ready, pile, stnCoord, p1, p2, p3, seabed, tol]);
 
+  function finishSave(msg) {
+    setSaving(false);
+    setToast({ type: 'ok', msg });
+    setP1({ ...EMPTY_PT }); setP2({ ...EMPTY_PT }); setP3({ ...EMPTY_PT }); setSeabed(''); setNote('');
+    setTimeout(() => setToast(null), 4000);
+  }
+
   async function save() {
     if (!results) return;
     setSaving(true);
 
+    if (!editRecord) return saveNew();
+
     let stationId = stnMatch?.id ?? null;
-    let createdStation = false;
     if (stnIsNew) {
       const { data: newBm, error: bmErr } = await supabase.from('benchmarks').insert({
         name: stnName.trim(),
@@ -185,7 +194,6 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
       }).select().single();
       if (bmErr) { setToast({ type: 'err', msg: bmErr.message }); setSaving(false); return; }
       stationId = newBm.id;
-      createdStation = true;
       setBenchmarks((bms) => [...bms, newBm]);
       setStnSelect(newBm.id);
     }
@@ -196,56 +204,90 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
     ];
     if (p3.n && p3.e && p3.el) pts.push({ point_no: 3, northing: num(p3.n), easting: num(p3.e), elevation: num(p3.el) });
 
-    if (editRecord) {
-      const { error } = await supabase.from('asbuilt_records').update({
-        pile_id: pile.id,
-        station_id: stationId,
-        backsight_id: bs?.id ?? null,
-        bs_measured_n: num(bsN), bs_measured_e: num(bsE),
-        measured_seabed: num(seabed),
-        is_shared: share,
-        results,
-        pile_stage: stage || null,
-        note: note.trim() === '' ? null : note.trim(),
-      }).eq('id', editRecord.id);
-      if (error) { setToast({ type: 'err', msg: error.message }); setSaving(false); return; }
-
-      const { error: delErr } = await supabase.from('survey_points').delete().eq('record_id', editRecord.id);
-      if (delErr) { setToast({ type: 'err', msg: delErr.message }); setSaving(false); return; }
-      const { error: e2 } = await supabase.from('survey_points').insert(pts.map((pt) => ({ ...pt, record_id: editRecord.id })));
-      setSaving(false);
-      if (e2) { setToast({ type: 'err', msg: e2.message }); return; }
-
-      setToast({ type: 'ok', msg: `Record updated · บันทึกการแก้ไขแล้ว` });
-      setTimeout(() => setToast(null), 4000);
-      resetToNewEntry();
-      onEditSaved?.();
-      return;
-    }
-
-    const measuredTime = new Date().toISOString();
-    const { data: rec, error } = await supabase.from('asbuilt_records').insert({
+    const { error } = await supabase.from('asbuilt_records').update({
       pile_id: pile.id,
       station_id: stationId,
       backsight_id: bs?.id ?? null,
       bs_measured_n: num(bsN), bs_measured_e: num(bsE),
       measured_seabed: num(seabed),
-      surveyor: session.user.email,
       is_shared: share,
       results,
-      measured_time: measuredTime,
       pile_stage: stage || null,
       note: note.trim() === '' ? null : note.trim(),
-    }).select().single();
+    }).eq('id', editRecord.id);
     if (error) { setToast({ type: 'err', msg: error.message }); setSaving(false); return; }
 
-    const { error: e2 } = await supabase.from('survey_points').insert(pts.map((pt) => ({ ...pt, record_id: rec.id })));
+    const { error: delErr } = await supabase.from('survey_points').delete().eq('record_id', editRecord.id);
+    if (delErr) { setToast({ type: 'err', msg: delErr.message }); setSaving(false); return; }
+    const { error: e2 } = await supabase.from('survey_points').insert(pts.map((pt) => ({ ...pt, record_id: editRecord.id })));
     setSaving(false);
     if (e2) { setToast({ type: 'err', msg: e2.message }); return; }
 
-    setToast({ type: 'ok', msg: `Pile ${pile.pile_no} saved${share ? ' · shared to team' : ' · private draft'}${createdStation ? ' · new station created · สร้างหมุดใหม่' : ''} · ${new Date(measuredTime).toLocaleString()}` });
-    setP1({ ...EMPTY_PT }); setP2({ ...EMPTY_PT }); setP3({ ...EMPTY_PT }); setSeabed(''); setNote('');
+    setToast({ type: 'ok', msg: `Record updated · บันทึกการแก้ไขแล้ว` });
     setTimeout(() => setToast(null), 4000);
+    resetToNewEntry();
+    onEditSaved?.();
+  }
+
+  // New (non-edit) record: builds the full payload up front with a
+  // client-generated uuid, so the same object can be pushed online now or
+  // queued to pending_records and retried later without ever duplicating
+  // rows (pushOne always upserts on that uuid).
+  async function saveNew() {
+    const stationId = stnIsNew ? crypto.randomUUID() : (stnMatch?.id ?? null);
+    const pts = [
+      { point_no: 1, northing: num(p1.n), easting: num(p1.e), elevation: num(p1.el) },
+      { point_no: 2, northing: num(p2.n), easting: num(p2.e), elevation: num(p2.el) },
+    ];
+    if (p3.n && p3.e && p3.el) pts.push({ point_no: 3, northing: num(p3.n), easting: num(p3.e), elevation: num(p3.el) });
+
+    const item = {
+      uuid: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      pileNo: pile.pile_no,
+      newStation: stnIsNew ? {
+        id: stationId, name: stnName.trim(), northing: num(bsN), easting: num(bsE), elevation: null, type: 'STN',
+      } : null,
+      record: {
+        pile_id: pile.id,
+        station_id: stationId,
+        backsight_id: bs?.id ?? null,
+        bs_measured_n: num(bsN), bs_measured_e: num(bsE),
+        measured_seabed: num(seabed),
+        surveyor: session.user.email,
+        is_shared: share,
+        results,
+        measured_time: new Date().toISOString(),
+        pile_stage: stage || null,
+        note: note.trim() === '' ? null : note.trim(),
+      },
+      points: pts,
+    };
+
+    if (!navigator.onLine) {
+      await queueRecord(item);
+      finishSave('Saved offline · บันทึกออฟไลน์ — will sync · จะซิงค์เมื่อมีสัญญาณ');
+      return;
+    }
+
+    try {
+      await pushOne(item);
+    } catch (err) {
+      if (isNetworkError(err)) {
+        await queueRecord(item);
+        finishSave('Saved offline · บันทึกออฟไลน์ — will sync · จะซิงค์เมื่อมีสัญญาณ');
+        return;
+      }
+      setToast({ type: 'err', msg: err.message });
+      setSaving(false);
+      return;
+    }
+
+    if (item.newStation) {
+      setBenchmarks((bms) => [...bms, item.newStation]);
+      setStnSelect(item.newStation.id);
+    }
+    finishSave(`Pile ${pile.pile_no} saved${share ? ' · shared to team' : ' · private draft'}${item.newStation ? ' · new station created · สร้างหมุดใหม่' : ''} · ${new Date(item.record.measured_time).toLocaleString()}`);
   }
 
   const inc = pile ? parseIncline(pile.incline) : null;

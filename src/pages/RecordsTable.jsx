@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { liveQuery } from 'dexie';
 import { supabase } from '../lib/supabase';
+import { localdb } from '../lib/localdb';
 import DataTable from '../components/DataTable';
 import { exportRecordsToExcel } from '../lib/exportExcel';
 import RecordDetailModal from '../components/RecordDetailModal';
@@ -66,6 +68,12 @@ export default function RecordsTable({ session, role, onEdit }) {
   const [filterPile, setFilterPile] = useState('');
   const [mineOnly, setMineOnly] = useState(false);
   const [selectedRow, setSelectedRow] = useState(null);
+  const [pending, setPending] = useState([]);
+
+  useEffect(() => {
+    const sub = liveQuery(() => localdb.pending_records.toArray()).subscribe({ next: setPending });
+    return () => sub.unsubscribe();
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,29 +96,63 @@ export default function RecordsTable({ session, role, onEdit }) {
   const filtered = useMemo(() => records.filter((r) =>
     !filterPile || (r.piles?.pile_no || '').toLowerCase().includes(filterPile.toLowerCase())), [records, filterPile]);
 
-  const rows = useMemo(() => filtered.map((r, i) => {
-    const pts = {};
-    (r.survey_points || []).forEach((p) => { pts[p.point_no] = p; });
-    const res = r.results || {};
-    return {
-      id: r.id,
-      no: i + 1,
-      pile_no: r.piles?.pile_no ?? '—',
-      measured_at: r.measured_at,
-      measured_time: r.measured_time,
-      surveyor: r.surveyor,
-      stn_name: r.station?.name ?? '—',
-      p1n: pts[1]?.northing, p1e: pts[1]?.easting, p1el: pts[1]?.elevation,
-      p2n: pts[2]?.northing, p2e: pts[2]?.easting, p2el: pts[2]?.elevation,
-      p3n: pts[3]?.northing, p3e: pts[3]?.easting, p3el: pts[3]?.elevation,
-      measured_seabed: r.measured_seabed,
-      is_shared: r.is_shared,
-      created_by: r.created_by,
-      pile_stage: r.pile_stage,
-      note: r.note,
-      ...res,
-    };
-  }), [filtered]);
+  const pendingFiltered = useMemo(() => pending.filter((item) =>
+    !filterPile || (item.pileNo || '').toLowerCase().includes(filterPile.toLowerCase())), [pending, filterPile]);
+
+  const rows = useMemo(() => {
+    const serverRows = filtered.map((r, i) => {
+      const pts = {};
+      (r.survey_points || []).forEach((p) => { pts[p.point_no] = p; });
+      const res = r.results || {};
+      return {
+        id: r.id,
+        no: i + 1,
+        pile_no: r.piles?.pile_no ?? '—',
+        measured_at: r.measured_at,
+        measured_time: r.measured_time,
+        surveyor: r.surveyor,
+        stn_name: r.station?.name ?? '—',
+        p1n: pts[1]?.northing, p1e: pts[1]?.easting, p1el: pts[1]?.elevation,
+        p2n: pts[2]?.northing, p2e: pts[2]?.easting, p2el: pts[2]?.elevation,
+        p3n: pts[3]?.northing, p3e: pts[3]?.easting, p3el: pts[3]?.elevation,
+        measured_seabed: r.measured_seabed,
+        is_shared: r.is_shared,
+        created_by: r.created_by,
+        pile_stage: r.pile_stage,
+        note: r.note,
+        ...res,
+      };
+    });
+
+    // Records still sitting in the offline queue — not in Supabase yet,
+    // so they're read straight from pending_records and clearly badged.
+    const pendingRows = pendingFiltered.map((item) => {
+      const pts = {};
+      (item.points || []).forEach((p) => { pts[p.point_no] = p; });
+      const res = item.record.results || {};
+      return {
+        id: item.uuid,
+        no: '⏳',
+        pile_no: item.pileNo,
+        measured_at: item.createdAt?.slice(0, 10),
+        measured_time: item.createdAt,
+        surveyor: item.record.surveyor,
+        stn_name: item.newStation?.name ?? '—',
+        p1n: pts[1]?.northing, p1e: pts[1]?.easting, p1el: pts[1]?.elevation,
+        p2n: pts[2]?.northing, p2e: pts[2]?.easting, p2el: pts[2]?.elevation,
+        p3n: pts[3]?.northing, p3e: pts[3]?.easting, p3el: pts[3]?.elevation,
+        measured_seabed: item.record.measured_seabed,
+        is_shared: item.record.is_shared,
+        created_by: null,
+        pile_stage: item.record.pile_stage,
+        note: item.record.note,
+        _pending: true,
+        ...res,
+      };
+    });
+
+    return [...pendingRows, ...serverRows];
+  }, [filtered, pendingFiltered]);
 
   // Group flattened rows by pile_no so the detail modal can show before+after side by side.
   const rowsByPile = useMemo(() => {
@@ -143,7 +185,12 @@ export default function RecordsTable({ session, role, onEdit }) {
   const viewColumns = [
     {
       key: '_view', label: '', type: 'readonly', width: 50,
-      render: (_v, row) => <button className="link" onClick={() => setSelectedRow(row)}>View</button>,
+      render: (_v, row) => (
+        <>
+          {row._pending && <span className="pending-badge">⏳ pending sync · รอซิงค์</span>}
+          <button className="link" onClick={() => setSelectedRow(row)}>View</button>
+        </>
+      ),
     },
     ...COLUMNS,
   ];

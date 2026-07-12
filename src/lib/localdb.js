@@ -6,6 +6,9 @@ localdb.version(1).stores({
   benchmarks: 'id',
   settings: 'key',
 });
+localdb.version(2).stores({
+  pending_records: 'uuid',
+});
 
 export async function replaceAll(table, rows) {
   await localdb.transaction('rw', table, async () => {
