@@ -86,6 +86,10 @@ body {
 .edit-banner {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
 }
+.offline-banner {
+  font-size: 13px; font-weight: 600;
+  color: #8a5a00; background: #fff4dd; border-color: #f0c674;
+}
 .card-title {
   margin: 0 0 10px;
   font-size: 14px; font-weight: 700;

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { localdb, replaceAll } from '../lib/localdb';
 import { computeAll, bsCheck, parseIncline } from '../lib/calculations';
 import ResultReadout from '../components/ResultReadout';
 
@@ -15,6 +16,7 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
   const [piles, setPiles] = useState([]);
   const [benchmarks, setBenchmarks] = useState([]);
   const [tol, setTol] = useState({ positionM: 0.075, tiltDeg: 1.0, residualM: 0.02, bsM: 0.01 });
+  const [offline, setOffline] = useState(false);
 
   const [pileId, setPileId] = useState('');
   const [stnSelect, setStnSelect] = useState('');
@@ -34,12 +36,27 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
 
   useEffect(() => {
     (async () => {
-      const [{ data: p }, { data: b }] = await Promise.all([
+      const [{ data: p, error: pErr }, { data: b, error: bErr }] = await Promise.all([
         supabase.from('piles').select('*').order('pile_no'),
         supabase.from('benchmarks').select('*').eq('active', true).order('name'),
       ]);
+      if (pErr || bErr) {
+        const [cachedPiles, cachedBenchmarks] = await Promise.all([
+          localdb.piles.toArray(),
+          localdb.benchmarks.toArray(),
+        ]);
+        setPiles(cachedPiles.sort((a, c) => (a.pile_no > c.pile_no ? 1 : -1)));
+        setBenchmarks(cachedBenchmarks.filter((r) => r.active).sort((a, c) => (a.name > c.name ? 1 : -1)));
+        setOffline(true);
+        return;
+      }
       setPiles(p ?? []);
       setBenchmarks(b ?? []);
+      setOffline(false);
+      await Promise.all([
+        replaceAll(localdb.piles, p ?? []),
+        replaceAll(localdb.benchmarks, b ?? []),
+      ]);
     })();
   }, []);
 
@@ -49,16 +66,30 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
   useEffect(() => {
     if (!active) return;
     (async () => {
-      const { data: s } = await supabase.from('project_settings').select('*');
-      if (s) {
-        const m = Object.fromEntries(s.map((r) => [r.key, r.value]));
-        setTol({
-          positionM: m.tol_position_m ?? 0.075,
-          tiltDeg: m.tol_tilt_deg ?? 1.0,
-          residualM: m.tol_residual_m ?? 0.02,
-          bsM: m.tol_bs_m ?? 0.01,
-        });
+      const { data: s, error } = await supabase.from('project_settings').select('*');
+      if (error || !s) {
+        const cached = await localdb.settings.toArray();
+        if (cached.length) {
+          const m = Object.fromEntries(cached.map((r) => [r.key, r.value]));
+          setTol({
+            positionM: m.tol_position_m ?? 0.075,
+            tiltDeg: m.tol_tilt_deg ?? 1.0,
+            residualM: m.tol_residual_m ?? 0.02,
+            bsM: m.tol_bs_m ?? 0.01,
+          });
+        }
+        setOffline(true);
+        return;
       }
+      const m = Object.fromEntries(s.map((r) => [r.key, r.value]));
+      setTol({
+        positionM: m.tol_position_m ?? 0.075,
+        tiltDeg: m.tol_tilt_deg ?? 1.0,
+        residualM: m.tol_residual_m ?? 0.02,
+        bsM: m.tol_bs_m ?? 0.01,
+      });
+      setOffline(false);
+      await replaceAll(localdb.settings, s);
     })();
   }, [active]);
 
@@ -221,6 +252,11 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
 
   return (
     <div className="page">
+      {offline && (
+        <section className="card offline-banner">
+          Offline · ออฟไลน์ — using cached data · ใช้ข้อมูลล่าสุดในเครื่อง
+        </section>
+      )}
       {editRecord && (
         <section className="card edit-banner">
           <strong>Editing record · {pile?.pile_no ?? '—'} · {STAGE_BANNER[stage] ?? stage ?? '—'}</strong>
