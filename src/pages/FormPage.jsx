@@ -8,8 +8,9 @@ const num = (s) => (s === '' || s == null ? null : Number(s));
 
 const EMPTY_PT = { n: '', e: '', el: '' };
 const NEW_STN = '__new__';
+const STAGE_BANNER = { before: 'Before driving · ก่อนตอก', after: 'After driving · หลังตอก' };
 
-export default function FormPage({ session, role, active }) {
+export default function FormPage({ session, role, active, editRecord, onCancelEdit, onEditSaved }) {
   const canSave = role === 'admin' || role === 'recorder';
   const [piles, setPiles] = useState([]);
   const [benchmarks, setBenchmarks] = useState([]);
@@ -60,6 +61,39 @@ export default function FormPage({ session, role, active }) {
       }
     })();
   }, [active]);
+
+  // Prefill the form from the record being edited (survey_points come pre-joined).
+  useEffect(() => {
+    if (!editRecord) return;
+    const toPt = (p) => (p ? { n: String(p.northing), e: String(p.easting), el: String(p.elevation) } : { ...EMPTY_PT });
+    const pts = {};
+    (editRecord.survey_points || []).forEach((p) => { pts[p.point_no] = p; });
+    setPileId(editRecord.pile_id ?? '');
+    setStnSelect(editRecord.station_id ?? '');
+    setStnName('');
+    setBsId(editRecord.backsight_id ?? '');
+    setBsN(editRecord.bs_measured_n != null ? String(editRecord.bs_measured_n) : '');
+    setBsE(editRecord.bs_measured_e != null ? String(editRecord.bs_measured_e) : '');
+    setP1(toPt(pts[1]));
+    setP2(toPt(pts[2]));
+    setP3(toPt(pts[3]));
+    setSeabed(editRecord.measured_seabed != null ? String(editRecord.measured_seabed) : '');
+    setStage(editRecord.pile_stage ?? '');
+    setNote(editRecord.note ?? '');
+    setShare(editRecord.is_shared ?? true);
+  }, [editRecord]);
+
+  function resetToNewEntry() {
+    setPileId(''); setStnSelect(''); setStnName('');
+    setBsId(''); setBsN(''); setBsE('');
+    setP1({ ...EMPTY_PT }); setP2({ ...EMPTY_PT }); setP3({ ...EMPTY_PT });
+    setSeabed(''); setStage(''); setNote(''); setShare(true);
+  }
+
+  function cancelEdit() {
+    resetToNewEntry();
+    onCancelEdit?.();
+  }
 
   const pile = piles.find((p) => p.id === pileId) ?? null;
   const stnMatch = stnSelect && stnSelect !== NEW_STN
@@ -125,6 +159,39 @@ export default function FormPage({ session, role, active }) {
       setStnSelect(newBm.id);
     }
 
+    const pts = [
+      { point_no: 1, northing: num(p1.n), easting: num(p1.e), elevation: num(p1.el) },
+      { point_no: 2, northing: num(p2.n), easting: num(p2.e), elevation: num(p2.el) },
+    ];
+    if (p3.n && p3.e && p3.el) pts.push({ point_no: 3, northing: num(p3.n), easting: num(p3.e), elevation: num(p3.el) });
+
+    if (editRecord) {
+      const { error } = await supabase.from('asbuilt_records').update({
+        pile_id: pile.id,
+        station_id: stationId,
+        backsight_id: bs?.id ?? null,
+        bs_measured_n: num(bsN), bs_measured_e: num(bsE),
+        measured_seabed: num(seabed),
+        is_shared: share,
+        results,
+        pile_stage: stage || null,
+        note: note.trim() === '' ? null : note.trim(),
+      }).eq('id', editRecord.id);
+      if (error) { setToast({ type: 'err', msg: error.message }); setSaving(false); return; }
+
+      const { error: delErr } = await supabase.from('survey_points').delete().eq('record_id', editRecord.id);
+      if (delErr) { setToast({ type: 'err', msg: delErr.message }); setSaving(false); return; }
+      const { error: e2 } = await supabase.from('survey_points').insert(pts.map((pt) => ({ ...pt, record_id: editRecord.id })));
+      setSaving(false);
+      if (e2) { setToast({ type: 'err', msg: e2.message }); return; }
+
+      setToast({ type: 'ok', msg: `Record updated · บันทึกการแก้ไขแล้ว` });
+      setTimeout(() => setToast(null), 4000);
+      resetToNewEntry();
+      onEditSaved?.();
+      return;
+    }
+
     const measuredTime = new Date().toISOString();
     const { data: rec, error } = await supabase.from('asbuilt_records').insert({
       pile_id: pile.id,
@@ -141,12 +208,7 @@ export default function FormPage({ session, role, active }) {
     }).select().single();
     if (error) { setToast({ type: 'err', msg: error.message }); setSaving(false); return; }
 
-    const pts = [
-      { record_id: rec.id, point_no: 1, northing: num(p1.n), easting: num(p1.e), elevation: num(p1.el) },
-      { record_id: rec.id, point_no: 2, northing: num(p2.n), easting: num(p2.e), elevation: num(p2.el) },
-    ];
-    if (p3.n && p3.e && p3.el) pts.push({ record_id: rec.id, point_no: 3, northing: num(p3.n), easting: num(p3.e), elevation: num(p3.el) });
-    const { error: e2 } = await supabase.from('survey_points').insert(pts);
+    const { error: e2 } = await supabase.from('survey_points').insert(pts.map((pt) => ({ ...pt, record_id: rec.id })));
     setSaving(false);
     if (e2) { setToast({ type: 'err', msg: e2.message }); return; }
 
@@ -159,6 +221,12 @@ export default function FormPage({ session, role, active }) {
 
   return (
     <div className="page">
+      {editRecord && (
+        <section className="card edit-banner">
+          <strong>Editing record · {pile?.pile_no ?? '—'} · {STAGE_BANNER[stage] ?? stage ?? '—'}</strong>
+          <button className="link" onClick={cancelEdit}>Cancel edit · ยกเลิก</button>
+        </section>
+      )}
       {/* ---------- setup ---------- */}
       <section className="card">
         <h2 className="card-title">Pile &amp; station · เข็มและจุดตั้งกล้อง</h2>
@@ -267,7 +335,7 @@ export default function FormPage({ session, role, active }) {
             <span>Share to team · แชร์ให้ทีม</span>
           </label>
           <button className="btn-save" disabled={!results || saving} onClick={save}>
-            {saving ? 'Saving…' : 'Save record'}
+            {saving ? 'Saving…' : (editRecord ? 'Update record · บันทึกการแก้ไข' : 'Save record')}
           </button>
         </div>
       )}

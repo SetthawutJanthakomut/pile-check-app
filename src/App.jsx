@@ -20,6 +20,7 @@ export default function App() {
   const [role, setRole] = useState(null);
   const [page, setPage] = useState('form');
   const [showLogin, setShowLogin] = useState(false);
+  const [editRecord, setEditRecord] = useState(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -60,10 +61,25 @@ export default function App() {
           </button>
         ))}
       </nav>
-      <div style={{ display: page === 'form' ? '' : 'none' }}><FormPage session={session} role={role} active={page === 'form'} /></div>
+      <div style={{ display: page === 'form' ? '' : 'none' }}>
+        <FormPage
+          session={session}
+          role={role}
+          active={page === 'form'}
+          editRecord={editRecord}
+          onCancelEdit={() => setEditRecord(null)}
+          onEditSaved={() => { setEditRecord(null); setPage('records'); }}
+        />
+      </div>
       <div style={{ display: page === 'piles' ? '' : 'none' }}><PilesTable role={role} /></div>
       <div style={{ display: page === 'benchmarks' ? '' : 'none' }}><BenchmarksTable role={role} /></div>
-      <div style={{ display: page === 'records' ? '' : 'none' }}><RecordsTable session={session} /></div>
+      <div style={{ display: page === 'records' ? '' : 'none' }}>
+        <RecordsTable
+          session={session}
+          role={role}
+          onEdit={(record) => { setEditRecord(record); setPage('form'); }}
+        />
+      </div>
       {role === 'admin' && (
         <div style={{ display: page === 'settings' ? '' : 'none' }}><SettingsPage /></div>
       )}

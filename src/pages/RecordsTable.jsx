@@ -59,7 +59,7 @@ const COLUMNS = [
   { key: 'is_shared', label: 'Shared · แชร์', type: 'boolean', width: 70 },
 ];
 
-export default function RecordsTable({ session }) {
+export default function RecordsTable({ session, role, onEdit }) {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
@@ -128,6 +128,11 @@ export default function RecordsTable({ session }) {
     setRecords((rs) => rs.map((r) => (r.id === rowId ? { ...r, [key]: value } : r)));
   }
 
+  function handleEdit(id) {
+    const full = records.find((r) => r.id === id);
+    if (full) onEdit?.(full);
+  }
+
   async function handleDelete(id) {
     if (!window.confirm('Delete this record? · ลบระเบียนนี้?')) return;
     const { error } = await supabase.from('asbuilt_records').delete().eq('id', id);
@@ -168,12 +173,17 @@ export default function RecordsTable({ session }) {
           columns={viewColumns}
           rows={rows}
           onSave={handleSave}
-          actionsLabel="Delete · ลบ"
-          renderRowActions={(row) => (
-            session && row.created_by === session.user.id
-              ? <button className="link danger" onClick={() => handleDelete(row.id)}>Delete · ลบ</button>
-              : null
-          )}
+          actionsLabel="Actions · การกระทำ"
+          renderRowActions={(row) => {
+            const mine = session && row.created_by === session.user.id;
+            const canEdit = mine && (role === 'admin' || role === 'recorder');
+            return (
+              <>
+                {canEdit && <button className="link" onClick={() => handleEdit(row.id)}>Edit · แก้ไข</button>}
+                {mine && <button className="link danger" onClick={() => handleDelete(row.id)}>Delete · ลบ</button>}
+              </>
+            );
+          }}
         />
       )}
       {selectedRow && (
