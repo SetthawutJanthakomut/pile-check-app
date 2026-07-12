@@ -310,6 +310,13 @@ body {
 .brand p { margin: 0; font-size: 13px; color: var(--ink-soft); }
 .brand .brand-mark { font-size: 34px; }
 .form-err { color: var(--fail); font-size: 13px; }
+.pw-wrap { position: relative; }
+.pw-wrap input { padding-right: 78px; }
+.pw-toggle {
+  position: absolute; top: 50%; right: 4px; transform: translateY(-50%);
+  background: none; border: none; color: var(--accent);
+  font: 600 12px var(--font); cursor: pointer; padding: 6px 8px;
+}
 .link { background: none; border: none; color: var(--accent); font: 500 13px var(--font); cursor: pointer; padding: 8px; }
 .login-card .btn-save { width: 100%; margin-top: 6px; }
 

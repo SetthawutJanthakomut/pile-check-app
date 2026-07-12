@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 export default function Login({ onClose }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [mode, setMode] = useState('signin');
   const [err, setErr] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -35,7 +36,19 @@ export default function Login({ onClose }) {
         <label className="field"><span>Email</span>
           <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></label>
         <label className="field"><span>Password</span>
-          <input type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} /></label>
+          <div className="pw-wrap">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              required
+              minLength={6}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <button type="button" className="pw-toggle" onClick={() => setShowPassword((v) => !v)}>
+              {showPassword ? 'Hide · ซ่อน' : 'Show · แสดง'}
+            </button>
+          </div>
+        </label>
         {err && <p className="form-err">{err}</p>}
         <button className="btn-save" disabled={busy}>
           {busy ? '…' : mode === 'signin' ? 'Sign in' : 'Create account'}
