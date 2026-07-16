@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { liveQuery } from 'dexie';
 import { supabase } from '../lib/supabase';
 import { localdb } from '../lib/localdb';
-import DataTable from '../components/DataTable';
+import DataTable, { useFrozenColumns, FreezeColumnsMenu } from '../components/DataTable';
 import { exportRecordsToExcel } from '../lib/exportExcel';
 import RecordDetailModal from '../components/RecordDetailModal';
 
@@ -28,10 +28,10 @@ const COLUMNS = [
   { key: 'p2n', label: 'P2 N', type: 'readonly' }, { key: 'p2e', label: 'P2 E', type: 'readonly' }, { key: 'p2el', label: 'P2 El.', type: 'readonly' },
   { key: 'p3n', label: 'P3 N', type: 'readonly' }, { key: 'p3e', label: 'P3 E', type: 'readonly' }, { key: 'p3el', label: 'P3 El.', type: 'readonly' },
   { key: 'measured_seabed', label: 'Meas. Seabed · ท้องทะเลวัด', type: 'readonly' },
-  { key: 'axisAz', label: 'Axis Az · แนวแกน', type: 'readonly', decimals: 2 },
-  { key: 'slope', label: 'Slope · ความชัน', type: 'readonly', decimals: 3 },
-  { key: 'tiltDeg', label: 'Tilt (°) · เอียง', type: 'readonly', decimals: 2 },
-  { key: 'azStnP1', label: 'Az STN→P1', type: 'readonly', decimals: 2 },
+  { key: 'axisAz', label: 'Axis Az · แนวแกน', type: 'readonly' },
+  { key: 'slope', label: 'Slope · ความชัน', type: 'readonly' },
+  { key: 'tiltDeg', label: 'Tilt (°) · เอียง', type: 'readonly' },
+  { key: 'azStnP1', label: 'Az STN→P1', type: 'readonly' },
   { key: 'centerN', label: 'Center N', type: 'readonly' },
   { key: 'centerE', label: 'Center E', type: 'readonly' },
   { key: 'asbuiltN', label: 'As-built N', type: 'readonly' },
@@ -42,14 +42,14 @@ const COLUMNS = [
   { key: 'dirE', label: 'Dir E', type: 'readonly', width: 90 },
   { key: 'totalDev', label: 'Total Dev · เบี่ยงเบนรวม', type: 'readonly' },
   { key: 'posCheck', label: 'Pos Check', type: 'readonly', verdict: true, width: 80 },
-  { key: 'residual', label: 'Residual (P3)', type: 'readonly', decimals: 4 },
+  { key: 'residual', label: 'Residual (P3)', type: 'readonly' },
   { key: 'p3Check', label: 'P3 Check', type: 'readonly', verdict: true, width: 80 },
-  { key: 'designTilt', label: 'Design Tilt (°)', type: 'readonly', decimals: 2 },
-  { key: 'tiltDiff', label: 'Tilt Diff (°)', type: 'readonly', decimals: 2 },
+  { key: 'designTilt', label: 'Design Tilt (°)', type: 'readonly' },
+  { key: 'tiltDiff', label: 'Tilt Diff (°)', type: 'readonly' },
   { key: 'slopeCheck', label: 'Slope Check', type: 'readonly', verdict: true, width: 90 },
-  { key: 'designBatterAz', label: 'Design Batter Az', type: 'readonly', decimals: 2 },
-  { key: 'asbuiltBatterAz', label: 'As-built Batter Az', type: 'readonly', decimals: 2 },
-  { key: 'diffBatterAz', label: 'Diff Batter Az', type: 'readonly', decimals: 2 },
+  { key: 'designBatterAz', label: 'Design Batter Az', type: 'readonly' },
+  { key: 'asbuiltBatterAz', label: 'As-built Batter Az', type: 'readonly' },
+  { key: 'diffBatterAz', label: 'Diff Batter Az', type: 'readonly' },
   { key: 'toeN', label: 'Toe N', type: 'readonly' },
   { key: 'toeE', label: 'Toe E', type: 'readonly' },
   { key: 'toeZ', label: 'Toe Z', type: 'readonly' },
@@ -61,6 +61,18 @@ const COLUMNS = [
   { key: 'is_shared', label: 'Shared · แชร์', type: 'boolean', width: 70 },
 ];
 
+const FREEZE_CANDIDATES = [
+  { key: '_view', label: 'View' },
+  { key: 'no', label: 'No.' },
+  { key: 'pile_no', label: 'Pile No.' },
+  { key: 'pile_stage', label: 'Stage' },
+  { key: 'note', label: 'Note' },
+  { key: '_datetime', label: 'Measured' },
+  { key: 'surveyor', label: 'Surveyor' },
+  { key: 'stn_name', label: 'STN' },
+];
+const DEFAULT_FROZEN_KEYS = ['_view', 'pile_no'];
+
 export default function RecordsTable({ session, role, onEdit }) {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -69,6 +81,7 @@ export default function RecordsTable({ session, role, onEdit }) {
   const [mineOnly, setMineOnly] = useState(false);
   const [selectedRow, setSelectedRow] = useState(null);
   const [pending, setPending] = useState([]);
+  const [frozenKeys, toggleFrozen, resetFrozen] = useFrozenColumns('recordsTable.frozenCols', DEFAULT_FROZEN_KEYS);
 
   useEffect(() => {
     const sub = liveQuery(() => localdb.pending_records.toArray()).subscribe({ next: setPending });
@@ -214,12 +227,19 @@ export default function RecordsTable({ session, role, onEdit }) {
         <button className="btn-secondary" disabled={!rows.length} onClick={() => exportRecordsToExcel(COLUMNS, rows)}>
           Export Excel · ส่งออกเอ็กเซล
         </button>
+        <FreezeColumnsMenu
+          candidates={FREEZE_CANDIDATES}
+          frozenKeys={frozenKeys}
+          onToggle={toggleFrozen}
+          onReset={resetFrozen}
+        />
       </div>
       {loading ? <p className="hint">Loading… · กำลังโหลด</p> : (
         <DataTable
           columns={viewColumns}
           rows={rows}
           onSave={handleSave}
+          frozenKeys={frozenKeys}
           actionsLabel="Actions · การกระทำ"
           renderRowActions={(row) => {
             const mine = session && row.created_by === session.user.id;

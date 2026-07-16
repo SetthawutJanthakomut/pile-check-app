@@ -125,6 +125,15 @@ body {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(232, 89, 12, 0.18);
 }
+.num-wrap { position: relative; }
+.num-wrap input { padding-right: 42px; }
+.sign-toggle {
+  position: absolute; top: 50%; right: 4px; transform: translateY(-50%);
+  min-height: 36px; min-width: 34px;
+  background: var(--paper); border: 1.5px solid var(--line); border-radius: 6px;
+  color: var(--ink-soft); font: 700 15px var(--mono); cursor: pointer;
+}
+.sign-toggle:active { background: var(--line); }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .grid3 { display: grid; grid-template-columns: 1fr; gap: 8px; }
 @media (min-width: 420px) { .grid3 { grid-template-columns: 1fr 1fr 1fr; } }
@@ -183,6 +192,35 @@ body {
 .check-bad { color: var(--fail); background: var(--fail-bg); font-weight: 700; }
 .dt-actions-head { width: 1%; }
 .dt-actions-cell { text-align: center; }
+
+/* frozen (sticky) columns */
+.data-table td.dt-frozen { background: var(--card); z-index: 1; }
+.data-table tbody tr:nth-child(even) td.dt-frozen { background: var(--paper); }
+.data-table th.dt-frozen { z-index: 3; }
+.data-table .dt-frozen-edge { box-shadow: 3px 0 6px -3px rgba(15, 29, 43, 0.35); }
+
+/* "Columns" freeze picker */
+.freeze-menu { position: relative; display: inline-block; }
+.freeze-menu-backdrop { position: fixed; inset: 0; z-index: 25; }
+.freeze-menu-popover {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 26;
+  min-width: 220px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(15, 29, 43, 0.18);
+  padding: 8px;
+}
+.freeze-menu-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.freeze-menu-row input { width: 17px; height: 17px; accent-color: var(--accent); flex-shrink: 0; }
+.freeze-menu-row span:nth-child(2) { flex: 1; }
+.freeze-menu-hint { font-size: 11px; color: var(--ink-soft); }
+.freeze-menu-popover .link { display: block; width: 100%; text-align: center; margin-top: 4px; border-top: 1px solid var(--line); padding-top: 8px; }
 
 .btn-secondary {
   padding: 9px 16px;

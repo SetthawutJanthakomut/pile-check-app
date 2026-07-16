@@ -7,6 +7,7 @@ import ResultReadout from '../components/ResultReadout';
 
 const fmt = (v, d = 3) => (v == null || Number.isNaN(v) ? '—' : Number(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }));
 const num = (s) => (s === '' || s == null ? null : Number(s));
+const flipSign = (s) => (s === '' || s == null ? s : (s.startsWith('-') ? s.slice(1) : `-${s}`));
 
 const EMPTY_PT = { n: '', e: '', el: '' };
 const NEW_STN = '__new__';
@@ -392,14 +393,18 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
 
       {/* ---------- points ---------- */}
       <PointCard title="Point 1 · Top จุดสูงสุด" pt={p1} set={setP1} />
-      <PointCard title="Point 2 · Bottom จุดต่ำสุด" pt={p2} set={setP2} />
       <PointCard title="Point 3 · Mid กลาง (cross-check, optional)" pt={p3} set={setP3} optional />
+      <PointCard title="Point 2 · Bottom จุดต่ำสุด" pt={p2} set={setP2} />
 
       <section className="card">
         <h2 className="card-title">Seabed re-survey · วัด seabed ใหม่ <em>blank = use design</em></h2>
         <label className="field"><span>Measured seabed EL.</span>
-          <input inputMode="decimal" value={seabed} onChange={(e) => setSeabed(e.target.value)}
-                 placeholder={pile?.sea_bed_level != null ? `design: ${pile.sea_bed_level}` : '0.000'} /></label>
+          <div className="num-wrap">
+            <input inputMode="decimal" value={seabed} onChange={(e) => setSeabed(e.target.value)}
+                   placeholder={pile?.sea_bed_level != null ? `design: ${pile.sea_bed_level}` : '0.000'} />
+            <button type="button" className="sign-toggle" onClick={() => setSeabed(flipSign(seabed))}>±</button>
+          </div>
+        </label>
       </section>
 
       {/* ---------- readout ---------- */}
