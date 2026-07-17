@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C . status --short pile-check-app)",
+      "Bash(npm test *)",
+      "Bash(node \"C:/Users/setth/AppData/Local/Temp/claude/c--Users-setth-pile-check-app/42b667dc-8907-4c99-8d59-d4912ed138cf/scratchpad/verify_freeze.mjs\")",
+      "Bash(cp \"C:/Users/setth/AppData/Local/Temp/claude/c--Users-setth-pile-check-app/42b667dc-8907-4c99-8d59-d4912ed138cf/scratchpad/verify_freeze.mjs\" \"c:/Users/setth/pile-check-app/verify_freeze.mjs\")",
+      "Bash(node verify_freeze.mjs)",
+      "Bash(pkill -f \"vite --port 5183\")",
+      "Bash(rm -f verify_freeze.mjs harness.html)",
+      "Bash(rm -rf src/__harness__)",
+      "Bash(npm uninstall *)",
+      "Bash(git commit -m ' *)"
+    ]
+  }
+}
