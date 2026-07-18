@@ -4,6 +4,7 @@ import { supabase } from './lib/supabase';
 import { localdb } from './lib/localdb';
 import { syncPending } from './lib/sync';
 import Login from './pages/Login';
+import SetNewPassword from './pages/SetNewPassword';
 import FormPage from './pages/FormPage';
 import PilesTable from './pages/PilesTable';
 import BenchmarksTable from './pages/BenchmarksTable';
@@ -29,10 +30,16 @@ export default function App() {
   const [editRecord, setEditRecord] = useState(null);
   const [pendingCount, setPendingCount] = useState(0);
   const [syncedToast, setSyncedToast] = useState(false);
+  const [showSetPassword, setShowSetPassword] = useState(false);
+  const [pwUpdatedToast, setPwUpdatedToast] = useState(false);
+  const [pendingUsersCount, setPendingUsersCount] = useState(0);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
+      setSession(s);
+      if (event === 'PASSWORD_RECOVERY') setShowSetPassword(true);
+    });
     return () => sub.subscription.unsubscribe();
   }, []);
 
@@ -69,7 +76,27 @@ export default function App() {
       });
   }, [session]);
 
+  useEffect(() => {
+    if (role !== 'admin') { setPendingUsersCount(0); return; }
+    supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'pending')
+      .then(({ count }) => setPendingUsersCount(count ?? 0));
+  }, [role]);
+
   if (session === undefined) return null;
+
+  if (showSetPassword) {
+    return (
+      <div className="modal-backdrop">
+        <SetNewPassword
+          onDone={() => {
+            setShowSetPassword(false);
+            setPwUpdatedToast(true);
+            setTimeout(() => setPwUpdatedToast(false), 4000);
+          }}
+        />
+      </div>
+    );
+  }
 
   if (session && status === 'pending') {
     return (
@@ -81,6 +108,9 @@ export default function App() {
           </div>
           <p className="hint" style={{ textAlign: 'center', fontSize: 15 }}>
             Waiting for admin approval · รอผู้ดูแลอนุมัติ
+          </p>
+          <p className="hint" style={{ textAlign: 'center', fontSize: 13 }}>
+            Contact your project admin to approve · ติดต่อผู้ดูแลโครงการเพื่ออนุมัติ
           </p>
           <button className="btn-save" onClick={() => supabase.auth.signOut()}>Sign out</button>
         </div>
@@ -113,6 +143,9 @@ export default function App() {
             onClick={() => setPage(p.key)}
           >
             {p.label}
+            {p.key === 'users' && pendingUsersCount > 0 && (
+              <span className="nav-badge">{pendingUsersCount}</span>
+            )}
           </button>
         ))}
       </nav>
@@ -149,6 +182,7 @@ export default function App() {
         </div>
       )}
       {syncedToast && <div className="toast ok">Synced · ซิงค์สำเร็จ</div>}
+      {pwUpdatedToast && <div className="toast ok">Password updated · เปลี่ยนรหัสแล้ว</div>}
     </>
   );
 }
