@@ -18,7 +18,8 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(npm view *)",
       "Bash(git status *)",
-      "Bash(git check-ignore *)"
+      "Bash(git check-ignore *)",
+      "Bash(grep -an \"viewColumns\\\\|_view\\\\|DataTable$\\\\|rows={rows}\\\\|rowClassName\" \"c:/Users/setth/pile-check-app/src/pages/RecordsTable.jsx\")"
     ]
   }
 }

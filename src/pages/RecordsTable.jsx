@@ -6,6 +6,7 @@ import DataTable, { useFrozenColumns, FreezeColumnsMenu } from '../components/Da
 import { exportRecordsToExcel } from '../lib/exportExcel';
 import RecordDetailModal from '../components/RecordDetailModal';
 import { effectivePrimary } from '../lib/primary';
+import { crossCheckDiff } from '../lib/calculations';
 
 const STAGE_SHORT = { before: 'ก่อนตอก', after: 'หลังตอก' };
 
@@ -15,7 +16,7 @@ function fmtDateTime(measuredAt, measuredTime) {
 }
 
 const COLUMNS = [
-  { key: 'no', label: 'No.', type: 'readonly', width: 44 },
+  { key: 'no', label: 'No.', type: 'readonly', width: 44, render: (v) => v ?? '—' },
   { key: 'pile_no', label: 'Pile No. · เลขเข็ม', type: 'readonly', width: 90 },
   { key: 'pile_stage', label: 'Stage · ระยะ', type: 'readonly', width: 80, render: (v) => STAGE_SHORT[v] ?? '—' },
   { key: 'note', label: 'Note · หมายเหตุ', type: 'readonly', width: 160 },
@@ -179,7 +180,18 @@ export default function RecordsTable({ session, role, onEdit }) {
       };
     });
 
-    return [...pendingRows, ...serverRows];
+    // Group piles' stages adjacently: primary sort by pile_no, secondary by
+    // measured time descending (matches the newest-first default, and puts
+    // หลังตอก ahead of ก่อนตอก since it's measured later on the same pile).
+    const combined = [...pendingRows, ...serverRows];
+    combined.sort((a, b) => {
+      const pileCmp = String(a.pile_no).localeCompare(String(b.pile_no), undefined, { numeric: true, sensitivity: 'base' });
+      if (pileCmp !== 0) return pileCmp;
+      const at = a.measured_time ? new Date(a.measured_time).getTime() : -Infinity;
+      const bt = b.measured_time ? new Date(b.measured_time).getTime() : -Infinity;
+      return bt - at;
+    });
+    return combined;
   }, [filtered, pendingFiltered]);
 
   // Group flattened rows by pile_no + pile_stage so the detail modal can show
@@ -195,9 +207,37 @@ export default function RecordsTable({ session, role, onEdit }) {
     return map;
   }, [rows]);
 
-  function groupFor(row) {
-    return rowsByPile[row.pile_no]?.[row.pile_stage] || [row];
-  }
+  // Flatten to one row per (pile_no, pile_stage): the row shows the effective
+  // primary record's values, tagged with a `_multi` summary (count + worst
+  // cross-check diff) when 2+ records exist for that pile+stage.
+  const flatRows = useMemo(() => {
+    const out = [];
+    const seen = new Set();
+    rows.forEach((r) => {
+      const key = `${r.pile_no}||${r.pile_stage}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      const members = rowsByPile[r.pile_no]?.[r.pile_stage] || [r];
+      if (members.length < 2) {
+        out.push({ ...members[0], _multi: null });
+        return;
+      }
+      const primary = effectivePrimary(members);
+      let maxDiff = 0;
+      members.forEach((m) => {
+        if (m.id === primary.id) return;
+        maxDiff = Math.max(maxDiff, crossCheckDiff(primary, m));
+      });
+      out.push({ ...primary, _multi: { count: members.length, maxDiff } });
+    });
+
+    let counter = 0;
+    return out.map((row) => {
+      if (row._pending) return { ...row, no: '⏳' };
+      counter += 1;
+      return { ...row, no: counter };
+    });
+  }, [rows, rowsByPile]);
 
   async function handleSave(rowId, key, value) {
     const { error } = await supabase.from('asbuilt_records').update({ [key]: value }).eq('id', rowId);
@@ -227,22 +267,32 @@ export default function RecordsTable({ session, role, onEdit }) {
   const viewColumns = [
     {
       key: '_view', label: '', type: 'readonly', width: 50,
-      render: (_v, row) => {
-        const group = groupFor(row);
-        const isMultiSurveyor = group.length > 1;
-        const primary = isMultiSurveyor ? effectivePrimary(group) : row;
-        return (
-          <>
-            {row._pending && <span className="pending-badge">⏳ pending sync · รอซิงค์</span>}
-            {isMultiSurveyor && (primary?.id === row.id
-              ? <span className="primary-badge">★ Primary · ใช้แสดงผล</span>
-              : <span className="muted-badge">not used · ไม่ใช้แสดงผล</span>)}
-            <button className="link" onClick={() => setSelectedRow(row)}>View</button>
-          </>
-        );
-      },
+      render: (_v, row) => (
+        <>
+          {row._pending && <span className="pending-badge">⏳ pending sync · รอซิงค์</span>}
+          <button className="link" onClick={() => setSelectedRow(row)}>View</button>
+        </>
+      ),
     },
-    ...COLUMNS,
+    ...COLUMNS.map((col) => {
+      if (col.key !== 'pile_no') return col;
+      return {
+        ...col,
+        render: (v, row) => (
+          <>
+            {v}
+            {row._multi && (
+              <span
+                className={`multi-badge${row._multi.maxDiff > tolCrossCheckM ? ' warn' : ''}`}
+                title={`${row._multi.count} surveys of this pile — click View for details · มี ${row._multi.count} การวัด กดดูรายละเอียด`}
+              >
+                {' '}ⓘ {row._multi.count}{row._multi.maxDiff > tolCrossCheckM ? ' ⚠' : ''}
+              </span>
+            )}
+          </>
+        ),
+      };
+    }),
   ];
 
   return (
@@ -261,7 +311,7 @@ export default function RecordsTable({ session, role, onEdit }) {
             <span>Mine only · เฉพาะของฉัน</span>
           </label>
         )}
-        <button className="btn-secondary" disabled={!rows.length} onClick={() => exportRecordsToExcel(COLUMNS, rows)}>
+        <button className="btn-secondary" disabled={!flatRows.length} onClick={() => exportRecordsToExcel(COLUMNS, flatRows)}>
           Export Excel · ส่งออกเอ็กเซล
         </button>
         <FreezeColumnsMenu
@@ -274,25 +324,15 @@ export default function RecordsTable({ session, role, onEdit }) {
       {loading ? <p className="hint">Loading… · กำลังโหลด</p> : (
         <DataTable
           columns={viewColumns}
-          rows={rows}
+          rows={flatRows}
           onSave={handleSave}
           frozenKeys={frozenKeys}
           actionsLabel="Actions · การกระทำ"
-          rowClassName={(row) => {
-            const group = groupFor(row);
-            if (row._pending || group.length < 2) return '';
-            return effectivePrimary(group)?.id === row.id ? '' : 'row-muted';
-          }}
           renderRowActions={(row) => {
             const mine = session && row.created_by === session.user.id;
             const canEdit = mine && (role === 'admin' || role === 'recorder');
-            const group = groupFor(row);
-            const canSetPrimary = !row._pending && group.length > 1
-              && effectivePrimary(group)?.id !== row.id
-              && (role === 'admin' || role === 'recorder');
             return (
               <>
-                {canSetPrimary && <button className="link" onClick={() => handleSetPrimary(row.id)}>Set primary · เลือกใช้</button>}
                 {canEdit && <button className="link" onClick={() => handleEdit(row.id)}>Edit · แก้ไข</button>}
                 {mine && <button className="link danger" onClick={() => handleDelete(row.id)}>Delete · ลบ</button>}
               </>
@@ -306,6 +346,8 @@ export default function RecordsTable({ session, role, onEdit }) {
           group={rowsByPile[selectedRow.pile_no]}
           tolCrossCheckM={tolCrossCheckM}
           columns={COLUMNS}
+          canSetPrimary={role === 'admin' || role === 'recorder'}
+          onSetPrimary={handleSetPrimary}
           onClose={() => setSelectedRow(null)}
         />
       )}

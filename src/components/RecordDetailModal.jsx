@@ -34,8 +34,34 @@ function CrossCheckBadge({ cc, tol }) {
   return (
     <div className={`crosscheck-badge ${pass ? 'pass' : 'fail'}`}>
       {pass
-        ? `✓ surveys agree (max diff ${fmt(cc.maxDiff, 3)} ≤ ${fmt(tol, 3)})`
-        : `⚠ SURVEYS DISAGREE (${fmt(cc.maxDiff, 3)} > ${fmt(tol, 3)}) — possible typo`}
+        ? `✓ surveys agree, max diff ${fmt(cc.maxDiff, 3)} m`
+        : `⚠ Surveys disagree — max diff ${fmt(cc.maxDiff, 3)} m > tolerance ${fmt(tol, 3)} m · ผลวัดไม่ตรงกัน อาจพิมพ์ตัวเลขผิด`}
+    </div>
+  );
+}
+
+// Condensed list of the non-primary records for a pile+stage, shown below the
+// primary's ResultReadout so admins/recorders can inspect and re-designate
+// primary without leaving the modal.
+function OtherSurveys({ members, primary, tol, canSetPrimary, onSetPrimary }) {
+  const others = (members || []).filter((m) => m.id !== primary.id);
+  if (others.length === 0) return null;
+  return (
+    <div className="card other-surveys">
+      <h4>Other surveys of this pile+stage · การวัดอื่นของเข็มนี้</h4>
+      {others.map((m) => {
+        const diff = crossCheckDiff(primary, m);
+        return (
+          <div key={m.id} className="other-survey-row">
+            <span>{m.surveyor || '—'} · {fmtWhen(m)}</span>
+            <span>N {fmt(m.asbuiltN)} E {fmt(m.asbuiltE)}</span>
+            <span className={diff > tol ? 'diff-warn' : ''}>diff {fmt(diff, 3)} m</span>
+            {canSetPrimary && (
+              <button className="link" onClick={() => onSetPrimary?.(m.id)}>Set as primary · ตั้งเป็นค่าหลัก</button>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -47,7 +73,7 @@ function CrossCheckBadge({ cc, tol }) {
 // what's on screen.
 // `group` is { before: Row[], after: Row[] } — all rows for this pile_no, grouped by stage.
 // `tolCrossCheckM` is the max allowed diff between two surveys of the same pile+stage.
-export default function RecordDetailModal({ row, group, tolCrossCheckM, columns, onClose }) {
+export default function RecordDetailModal({ row, group, tolCrossCheckM, columns, canSetPrimary, onSetPrimary, onClose }) {
   const [printing, setPrinting] = useState(null);
   const [printError, setPrintError] = useState(null);
   const [saving, setSaving] = useState(null);
@@ -100,6 +126,7 @@ export default function RecordDetailModal({ row, group, tolCrossCheckM, columns,
             <button className="link" onClick={onClose}>Close · ปิด</button>
           </div>
           <ResultReadout results={primary} p1El={primary.p1el} stage={primary.pile_stage} note={primary.note} />
+          <OtherSurveys members={stageGroup} primary={primary} tol={tolCrossCheckM} canSetPrimary={canSetPrimary} onSetPrimary={onSetPrimary} />
           <button className="btn-secondary" onClick={() => exportRecordsToExcel(columns, [primary])}>
             Export this record · ส่งออกระเบียนนี้
           </button>
@@ -149,6 +176,7 @@ export default function RecordDetailModal({ row, group, tolCrossCheckM, columns,
             <p className="hint">{beforePrimary.surveyor} · {fmtWhen(beforePrimary)}</p>
             <CrossCheckBadge cc={ccBefore} tol={tolCrossCheckM} />
             <ResultReadout results={beforePrimary} p1El={beforePrimary.p1el} stage="before" note={beforePrimary.note} />
+            <OtherSurveys members={beforeGroup} primary={beforePrimary} tol={tolCrossCheckM} canSetPrimary={canSetPrimary} onSetPrimary={onSetPrimary} />
             <button className="btn-secondary" disabled={printing === beforePrimary.id}
               onClick={() => handlePrint(beforePrimary, { asbuiltN: afterPrimary.asbuiltN, asbuiltE: afterPrimary.asbuiltE }, ccBefore)}>
               {printing === beforePrimary.id ? 'Preparing… · กำลังเตรียม' : 'PDF report · รายงาน PDF'}
@@ -162,6 +190,7 @@ export default function RecordDetailModal({ row, group, tolCrossCheckM, columns,
             <p className="hint">{afterPrimary.surveyor} · {fmtWhen(afterPrimary)}</p>
             <CrossCheckBadge cc={ccAfter} tol={tolCrossCheckM} />
             <ResultReadout results={afterPrimary} p1El={afterPrimary.p1el} stage="after" note={afterPrimary.note} />
+            <OtherSurveys members={afterGroup} primary={afterPrimary} tol={tolCrossCheckM} canSetPrimary={canSetPrimary} onSetPrimary={onSetPrimary} />
             <button className="btn-secondary" disabled={printing === afterPrimary.id}
               onClick={() => handlePrint(afterPrimary, { asbuiltN: beforePrimary.asbuiltN, asbuiltE: beforePrimary.asbuiltE }, ccAfter)}>
               {printing === afterPrimary.id ? 'Preparing… · กำลังเตรียม' : 'PDF report · รายงาน PDF'}
