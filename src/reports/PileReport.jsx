@@ -75,10 +75,11 @@ function DeviationSketch({ pile, results }) {
  * pile:      full piles row (design fields)
  * station:   benchmark row for station_id | null
  * backsight: benchmark row for backsight_id | null
- * tol:       { positionM, tiltDeg, residualM, bsM, coatingEmbedM } — current settings
+ * tol:       { positionM, tiltDeg, residualM, bsM, coatingEmbedM, crossCheckM } — current settings
  * siblingAsbuilt: { asbuiltN, asbuiltE } of the other driving stage for this pile | null
+ * crossCheck: { count, maxDiff } of other surveys of the SAME pile+stage | null
  */
-export default function PileReport({ record, pile, station, backsight, tol, siblingAsbuilt }) {
+export default function PileReport({ record, pile, station, backsight, tol, siblingAsbuilt, crossCheck }) {
   const results = record.results;
   const inc = parseIncline(pile.incline);
   const isBattered = results.designBatterAz != null;
@@ -152,6 +153,12 @@ export default function PileReport({ record, pile, station, backsight, tol, sibl
         <div><div className="lbl">Measured at</div><div className="val mono">{fmtMeasuredAt(record.measured_at, record.measured_time)}</div></div>
         <div style={{ gridColumn: 'span 3' }}><div className="lbl">Method</div>
           <div className="val" style={{ fontSize: '9.5px', fontWeight: 400 }}>Edge bisection (mean of left/right pan) at 2 points on pile surface + Point-3 mid cross-check</div></div>
+        {crossCheck && crossCheck.count > 0 && (
+          <div style={{ gridColumn: 'span 3' }}><div className="lbl">Cross-check · เทียบกับผู้สำรวจอื่น</div>
+            <div className="val" style={{ fontSize: '9.5px', fontWeight: 400, color: crossCheck.maxDiff <= tol.crossCheckM ? 'var(--pass)' : 'var(--fail)' }}>
+              Cross-checked against {crossCheck.count} other survey(s): max diff {fmt(crossCheck.maxDiff, 3)} m — {crossCheck.maxDiff <= tol.crossCheckM ? 'OK' : 'CHECK'}
+            </div></div>
+        )}
       </div>
       <table className="pts">
         <tbody>

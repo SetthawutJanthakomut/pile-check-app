@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { liveQuery } from 'dexie';
 import { supabase } from '../lib/supabase';
 import { localdb } from '../lib/localdb';
 import DataTable, { useFrozenColumns, FreezeColumnsMenu } from '../components/DataTable';
 import { exportRecordsToExcel } from '../lib/exportExcel';
 import RecordDetailModal from '../components/RecordDetailModal';
+import { effectivePrimary } from '../lib/primary';
 
 const STAGE_SHORT = { before: 'ก่อนตอก', after: 'หลังตอก' };
 
@@ -81,6 +82,7 @@ export default function RecordsTable({ session, role, onEdit }) {
   const [mineOnly, setMineOnly] = useState(false);
   const [selectedRow, setSelectedRow] = useState(null);
   const [pending, setPending] = useState([]);
+  const [tolCrossCheckM, setTolCrossCheckM] = useState(0.03);
   const [frozenKeys, toggleFrozen, resetFrozen] = useFrozenColumns('recordsTable.frozenCols', DEFAULT_FROZEN_KEYS);
 
   useEffect(() => {
@@ -89,22 +91,33 @@ export default function RecordsTable({ session, role, onEdit }) {
   }, []);
 
   useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from('project_settings').select('value').eq('key', 'tol_cross_check_m').single();
+      if (data?.value != null) setTolCrossCheckM(data.value);
+    })();
+  }, []);
+
+  const fetchRecords = useCallback(() => {
+    let q = supabase
+      .from('asbuilt_records')
+      .select('*, piles(pile_no), station:benchmarks!station_id(name), survey_points(point_no, northing, easting, elevation)')
+      .order('measured_at', { ascending: false });
+    if (mineOnly && session) q = q.eq('created_by', session.user.id);
+    return q;
+  }, [mineOnly, session?.user?.id]);
+
+  useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      let q = supabase
-        .from('asbuilt_records')
-        .select('*, piles(pile_no), station:benchmarks!station_id(name), survey_points(point_no, northing, easting, elevation)')
-        .order('measured_at', { ascending: false });
-      if (mineOnly && session) q = q.eq('created_by', session.user.id);
-      const { data, error } = await q;
+      const { data, error } = await fetchRecords();
       if (cancelled) return;
       if (error) setToast({ type: 'err', msg: error.message });
       setRecords(data ?? []);
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [mineOnly, session?.user?.id]);
+  }, [fetchRecords]);
 
   const filtered = useMemo(() => records.filter((r) =>
     !filterPile || (r.piles?.pile_no || '').toLowerCase().includes(filterPile.toLowerCase())), [records, filterPile]);
@@ -130,6 +143,7 @@ export default function RecordsTable({ session, role, onEdit }) {
         p3n: pts[3]?.northing, p3e: pts[3]?.easting, p3el: pts[3]?.elevation,
         measured_seabed: r.measured_seabed,
         is_shared: r.is_shared,
+        is_primary: r.is_primary,
         created_by: r.created_by,
         pile_stage: r.pile_stage,
         note: r.note,
@@ -156,6 +170,7 @@ export default function RecordsTable({ session, role, onEdit }) {
         p3n: pts[3]?.northing, p3e: pts[3]?.easting, p3el: pts[3]?.elevation,
         measured_seabed: item.record.measured_seabed,
         is_shared: item.record.is_shared,
+        is_primary: false,
         created_by: null,
         pile_stage: item.record.pile_stage,
         note: item.record.note,
@@ -167,15 +182,22 @@ export default function RecordsTable({ session, role, onEdit }) {
     return [...pendingRows, ...serverRows];
   }, [filtered, pendingFiltered]);
 
-  // Group flattened rows by pile_no so the detail modal can show before+after side by side.
+  // Group flattened rows by pile_no + pile_stage so the detail modal can show
+  // before+after side by side, and multiple same-pile+stage surveys can be
+  // cross-checked against each other.
   const rowsByPile = useMemo(() => {
     const map = {};
     rows.forEach((r) => {
       if (!map[r.pile_no]) map[r.pile_no] = {};
-      map[r.pile_no][r.pile_stage] = r;
+      if (!map[r.pile_no][r.pile_stage]) map[r.pile_no][r.pile_stage] = [];
+      map[r.pile_no][r.pile_stage].push(r);
     });
     return map;
   }, [rows]);
+
+  function groupFor(row) {
+    return rowsByPile[row.pile_no]?.[row.pile_stage] || [row];
+  }
 
   async function handleSave(rowId, key, value) {
     const { error } = await supabase.from('asbuilt_records').update({ [key]: value }).eq('id', rowId);
@@ -195,15 +217,30 @@ export default function RecordsTable({ session, role, onEdit }) {
     setRecords((rs) => rs.filter((r) => r.id !== id));
   }
 
+  async function handleSetPrimary(recId) {
+    const { error } = await supabase.rpc('set_primary_record', { rec_id: recId });
+    if (error) { setToast({ type: 'err', msg: error.message }); setTimeout(() => setToast(null), 4000); return; }
+    const { data, error: fErr } = await fetchRecords();
+    if (!fErr) setRecords(data ?? []);
+  }
+
   const viewColumns = [
     {
       key: '_view', label: '', type: 'readonly', width: 50,
-      render: (_v, row) => (
-        <>
-          {row._pending && <span className="pending-badge">⏳ pending sync · รอซิงค์</span>}
-          <button className="link" onClick={() => setSelectedRow(row)}>View</button>
-        </>
-      ),
+      render: (_v, row) => {
+        const group = groupFor(row);
+        const isMultiSurveyor = group.length > 1;
+        const primary = isMultiSurveyor ? effectivePrimary(group) : row;
+        return (
+          <>
+            {row._pending && <span className="pending-badge">⏳ pending sync · รอซิงค์</span>}
+            {isMultiSurveyor && (primary?.id === row.id
+              ? <span className="primary-badge">★ Primary · ใช้แสดงผล</span>
+              : <span className="muted-badge">not used · ไม่ใช้แสดงผล</span>)}
+            <button className="link" onClick={() => setSelectedRow(row)}>View</button>
+          </>
+        );
+      },
     },
     ...COLUMNS,
   ];
@@ -241,11 +278,21 @@ export default function RecordsTable({ session, role, onEdit }) {
           onSave={handleSave}
           frozenKeys={frozenKeys}
           actionsLabel="Actions · การกระทำ"
+          rowClassName={(row) => {
+            const group = groupFor(row);
+            if (row._pending || group.length < 2) return '';
+            return effectivePrimary(group)?.id === row.id ? '' : 'row-muted';
+          }}
           renderRowActions={(row) => {
             const mine = session && row.created_by === session.user.id;
             const canEdit = mine && (role === 'admin' || role === 'recorder');
+            const group = groupFor(row);
+            const canSetPrimary = !row._pending && group.length > 1
+              && effectivePrimary(group)?.id !== row.id
+              && (role === 'admin' || role === 'recorder');
             return (
               <>
+                {canSetPrimary && <button className="link" onClick={() => handleSetPrimary(row.id)}>Set primary · เลือกใช้</button>}
                 {canEdit && <button className="link" onClick={() => handleEdit(row.id)}>Edit · แก้ไข</button>}
                 {mine && <button className="link danger" onClick={() => handleDelete(row.id)}>Delete · ลบ</button>}
               </>
@@ -256,7 +303,8 @@ export default function RecordsTable({ session, role, onEdit }) {
       {selectedRow && (
         <RecordDetailModal
           row={selectedRow}
-          pair={rowsByPile[selectedRow.pile_no]}
+          group={rowsByPile[selectedRow.pile_no]}
+          tolCrossCheckM={tolCrossCheckM}
           columns={COLUMNS}
           onClose={() => setSelectedRow(null)}
         />

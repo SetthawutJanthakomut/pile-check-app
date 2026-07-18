@@ -8,6 +8,7 @@ const LABELS = {
   tol_residual_m: 'Residual tolerance (m) · ค่าเผื่อระยะเบี่ยงเบน P3 (ม.)',
   tol_bs_m: 'Backsight tolerance (m) · ค่าเผื่อหมุดหลัง (ม.)',
   tol_coating_embed_m: 'Coating embed below seabed (m) · ระยะสีจมใต้ท้องทะเลขั้นต่ำ (ม.)',
+  tol_cross_check_m: 'Cross-check tolerance (m) · ค่าเผื่อเทียบผู้สำรวจ (ม.)',
 };
 
 const COLUMNS = [

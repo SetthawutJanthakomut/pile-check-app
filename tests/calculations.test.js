@@ -1,7 +1,7 @@
 // Run: node tests/calculations.test.js
 // Every expected value below was read from the verified Excel workbook
 // (LibreOffice-recalculated) and cross-checked against the original file.
-import { computeAll, bsCheck } from '../src/lib/calculations.js';
+import { computeAll, bsCheck, crossCheckDiff } from '../src/lib/calculations.js';
 
 const input = {
   design: {
@@ -91,6 +91,15 @@ if (out4.coatingCheck !== 'OVER') {
 const bs = bsCheck({ n: 1397885.144, e: 733040.763 }, { n: 1397885.144, e: 733040.763 }, 0.010);
 if (!bs.pass || bs.diff !== 0) { fails++; console.error('FAIL bsCheck'); }
 else console.log('ok  bsCheck TRUE at diff 0');
+
+// crossCheckDiff: identical positions -> 0; N diff 0.03 + E diff 0.04 -> 0.05 (3-4-5)
+const cc1 = crossCheckDiff({ asbuiltN: 100, asbuiltE: 200 }, { asbuiltN: 100, asbuiltE: 200 });
+if (cc1 !== 0) { fails++; console.error(`FAIL crossCheckDiff identical: got ${cc1}, expected 0`); }
+else console.log('ok  crossCheckDiff identical = 0');
+
+const cc2 = crossCheckDiff({ asbuiltN: 100, asbuiltE: 200 }, { asbuiltN: 100.03, asbuiltE: 200.04 });
+if (Math.abs(cc2 - 0.05) > 1e-9) { fails++; console.error(`FAIL crossCheckDiff 3-4-5: got ${cc2}, expected 0.05`); }
+else console.log(`ok  crossCheckDiff 3-4-5 = ${cc2}`);
 
 console.log(fails === 0 ? '\nALL TESTS PASSED ✓' : `\n${fails} TEST(S) FAILED ✗`);
 process.exit(fails === 0 ? 0 : 1);

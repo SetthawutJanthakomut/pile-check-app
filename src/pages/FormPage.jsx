@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { localdb, replaceAll } from '../lib/localdb';
 import { queueRecord, pushOne, isNetworkError } from '../lib/sync';
-import { computeAll, bsCheck, parseIncline } from '../lib/calculations';
+import { computeAll, bsCheck, parseIncline, crossCheckDiff } from '../lib/calculations';
 import ResultReadout from '../components/ResultReadout';
 
 const fmt = (v, d = 3) => (v == null || Number.isNaN(v) ? '—' : Number(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }));
@@ -17,7 +17,7 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
   const canSave = role === 'admin' || role === 'recorder';
   const [piles, setPiles] = useState([]);
   const [benchmarks, setBenchmarks] = useState([]);
-  const [tol, setTol] = useState({ positionM: 0.075, tiltDeg: 1.0, residualM: 0.02, bsM: 0.01, coatingEmbedM: 2.0 });
+  const [tol, setTol] = useState({ positionM: 0.075, tiltDeg: 1.0, residualM: 0.02, bsM: 0.01, coatingEmbedM: 2.0, crossCheckM: 0.03 });
   const [offline, setOffline] = useState(false);
 
   const [pileId, setPileId] = useState('');
@@ -35,6 +35,7 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
   const [share, setShare] = useState(true);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
+  const [mismatch, setMismatch] = useState(null); // { diff, tolM, surveyor, date, resolve }
 
   useEffect(() => {
     (async () => {
@@ -79,6 +80,7 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
             residualM: m.tol_residual_m ?? 0.02,
             bsM: m.tol_bs_m ?? 0.01,
             coatingEmbedM: m.tol_coating_embed_m ?? 2.0,
+            crossCheckM: m.tol_cross_check_m ?? 0.03,
           });
         }
         setOffline(true);
@@ -91,6 +93,7 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
         residualM: m.tol_residual_m ?? 0.02,
         bsM: m.tol_bs_m ?? 0.01,
         coatingEmbedM: m.tol_coating_embed_m ?? 2.0,
+        crossCheckM: m.tol_cross_check_m ?? 0.03,
       });
       setOffline(false);
       await replaceAll(localdb.settings, s);
@@ -180,11 +183,45 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
     setTimeout(() => setToast(null), 4000);
   }
 
+  function askMismatch(info) {
+    return new Promise((resolve) => setMismatch({ ...info, resolve }));
+  }
+
+  // Cross-check the new result against existing records of the same pile+stage
+  // before saving. Offline: the server comparison is skipped entirely (nothing
+  // to compare against locally) and the record is queued as usual.
+  async function checkCrossCheck(excludeId) {
+    if (!stage || !navigator.onLine) return { proceed: true, share };
+    let q = supabase.from('asbuilt_records').select('id, surveyor, measured_at, results')
+      .eq('pile_id', pile.id).eq('pile_stage', stage);
+    if (excludeId) q = q.neq('id', excludeId);
+    const { data, error } = await q;
+    if (error || !data || data.length === 0) return { proceed: true, share };
+
+    let worst = null;
+    for (const r of data) {
+      if (r.results?.asbuiltN == null) continue;
+      const diff = crossCheckDiff(results, r.results);
+      if (!worst || diff > worst.diff) worst = { diff, surveyor: r.surveyor, date: r.measured_at };
+    }
+    if (!worst) return { proceed: true, share };
+
+    if (worst.diff <= tol.crossCheckM) {
+      return { proceed: true, share, matchNote: `✓ matches existing survey (diff ${fmt(worst.diff, 3)} m)` };
+    }
+    const choice = await askMismatch({ diff: worst.diff, tolM: tol.crossCheckM, surveyor: worst.surveyor, date: worst.date });
+    if (choice === 'cancel') return { proceed: false };
+    return { proceed: true, share: choice === 'shared' };
+  }
+
   async function save() {
     if (!results) return;
     setSaving(true);
 
     if (!editRecord) return saveNew();
+
+    const cc = await checkCrossCheck(editRecord.id);
+    if (!cc.proceed) { setSaving(false); return; }
 
     let stationId = stnMatch?.id ?? null;
     if (stnIsNew) {
@@ -213,7 +250,7 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
       backsight_id: bs?.id ?? null,
       bs_measured_n: num(bsN), bs_measured_e: num(bsE),
       measured_seabed: num(seabed),
-      is_shared: share,
+      is_shared: cc.share,
       results,
       pile_stage: stage || null,
       note: note.trim() === '' ? null : note.trim(),
@@ -226,7 +263,7 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
     setSaving(false);
     if (e2) { setToast({ type: 'err', msg: e2.message }); return; }
 
-    setToast({ type: 'ok', msg: `Record updated · บันทึกการแก้ไขแล้ว` });
+    setToast({ type: 'ok', msg: `Record updated · บันทึกการแก้ไขแล้ว${cc.matchNote ? ' · ' + cc.matchNote : ''}` });
     setTimeout(() => setToast(null), 4000);
     resetToNewEntry();
     onEditSaved?.();
@@ -237,6 +274,9 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
   // queued to pending_records and retried later without ever duplicating
   // rows (pushOne always upserts on that uuid).
   async function saveNew() {
+    const cc = await checkCrossCheck(null);
+    if (!cc.proceed) { setSaving(false); return; }
+
     const stationId = stnIsNew ? crypto.randomUUID() : (stnMatch?.id ?? null);
     const pts = [
       { point_no: 1, northing: num(p1.n), easting: num(p1.e), elevation: num(p1.el) },
@@ -258,7 +298,7 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
         bs_measured_n: num(bsN), bs_measured_e: num(bsE),
         measured_seabed: num(seabed),
         surveyor: session.user.email,
-        is_shared: share,
+        is_shared: cc.share,
         results,
         measured_time: new Date().toISOString(),
         pile_stage: stage || null,
@@ -290,7 +330,7 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
       setBenchmarks((bms) => [...bms, item.newStation]);
       setStnSelect(item.newStation.id);
     }
-    finishSave(`Pile ${pile.pile_no} saved${share ? ' · shared to team' : ' · private draft'}${item.newStation ? ' · new station created · สร้างหมุดใหม่' : ''} · ${new Date(item.record.measured_time).toLocaleString()}`);
+    finishSave(`Pile ${pile.pile_no} saved${cc.share ? ' · shared to team' : ' · private draft'}${item.newStation ? ' · new station created · สร้างหมุดใหม่' : ''} · ${new Date(item.record.measured_time).toLocaleString()}${cc.matchNote ? ' · ' + cc.matchNote : ''}`);
   }
 
   const inc = pile ? parseIncline(pile.incline) : null;
@@ -426,6 +466,29 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
       )}
 
       {toast && <div className={`toast ${toast.type}`}>{toast.msg}</div>}
+
+      {mismatch && (
+        <div className="modal-backdrop" onClick={() => { mismatch.resolve('cancel'); setMismatch(null); }}>
+          <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div><h2>Cross-check mismatch · ข้อมูลไม่ตรงกัน</h2></div>
+            </div>
+            <p>
+              Does not match existing survey by {mismatch.surveyor} ({mismatch.date}) — diff {fmt(mismatch.diff, 3)} m &gt; {fmt(mismatch.tolM, 3)} m.
+              อาจพิมพ์ตัวเลขผิด ตรวจสอบก่อนบันทึก. Save anyway?
+            </p>
+            <button className="btn-secondary" onClick={() => { setShare(true); mismatch.resolve('shared'); setMismatch(null); }}>
+              Save shared · บันทึกแบบแชร์
+            </button>
+            <button className="btn-secondary" onClick={() => { setShare(false); mismatch.resolve('private'); setMismatch(null); }}>
+              Save private · บันทึกส่วนตัว
+            </button>
+            <button className="link" onClick={() => { mismatch.resolve('cancel'); setMismatch(null); }}>
+              Cancel · กลับไปตรวจ
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

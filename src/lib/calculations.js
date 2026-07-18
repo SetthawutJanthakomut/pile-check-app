@@ -46,6 +46,12 @@ export function bsCheck(measured, known, tol) {
   return { diff, pass: diff <= tol };
 }
 
+/** Planar distance between two as-built positions — cross-check between two
+ *  surveys of the same pile+stage (e.g. by different surveyors). */
+export function crossCheckDiff(a, b) {
+  return Math.hypot(a.asbuiltN - b.asbuiltN, a.asbuiltE - b.asbuiltE);
+}
+
 /**
  * Full pipeline. Inputs:
  *  design: { pn, pe, cutoff, diaMm, incline, batterAzDeg|null, lengthM|null,

@@ -16,7 +16,9 @@
       "Read(//c/Users/setth/**)",
       "WebSearch",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "Bash(npm view *)"
+      "Bash(npm view *)",
+      "Bash(git status *)",
+      "Bash(git check-ignore *)"
     ]
   }
 }

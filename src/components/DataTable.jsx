@@ -76,7 +76,7 @@ export function FreezeColumnsMenu({ candidates, frozenKeys, onToggle, onReset })
  *             screens the leftmost frozen columns are kept only up to 45% of the
  *             viewport width; the rest fall back to unfrozen.
  */
-export default function DataTable({ columns, rows, onSave, renderRowActions, actionsLabel, readOnly = false, frozenKeys = [] }) {
+export default function DataTable({ columns, rows, onSave, renderRowActions, actionsLabel, readOnly = false, frozenKeys = [], rowClassName }) {
   const [editing, setEditing] = useState(null); // { rowId, key }
   const [editValue, setEditValue] = useState('');
   const [overrides, setOverrides] = useState({}); // `${rowId}:${key}` -> optimistic value
@@ -226,7 +226,7 @@ export default function DataTable({ columns, rows, onSave, renderRowActions, act
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={row.id}>
+            <tr key={row.id} className={rowClassName?.(row) || undefined}>
               {columns.map((col) => {
                 const ck = cellKey(row.id, col.key);
                 const value = valueOf(row, col);

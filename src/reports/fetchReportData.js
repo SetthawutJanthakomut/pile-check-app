@@ -22,6 +22,7 @@ export async function fetchReportInputs(recordId) {
     residualM: m.tol_residual_m ?? 0.02,
     bsM: m.tol_bs_m ?? 0.01,
     coatingEmbedM: m.tol_coating_embed_m ?? 2.0,
+    crossCheckM: m.tol_cross_check_m ?? 0.03,
   };
 
   return { record, pile: record.piles, station: record.station, backsight: record.backsight, tol };
