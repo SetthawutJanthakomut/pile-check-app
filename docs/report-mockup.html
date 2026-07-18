@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>As-Built Pile Report — Design Mockup</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap');
+  :root{
+    --ink:#0f1d2b; --muted:#46586b; --line:#d7dee5; --line2:#9fb3c8;
+    --accent:#e8590c; --pass:#2b8a3e; --fail:#c92a2a; --band:#eef2f5;
+  }
+  *{box-sizing:border-box; margin:0}
+  body{background:#8a97a3; font-family:'Sarabun',sans-serif; color:var(--ink);
+       display:flex; justify-content:center; padding:24px}
+  .page{width:210mm; min-height:297mm; background:#fff; padding:14mm 12mm;
+        box-shadow:0 4px 24px rgba(0,0,0,.35); position:relative}
+  .mono{font-family:'IBM Plex Mono',monospace; font-variant-numeric:tabular-nums}
+
+  header{background:var(--ink); color:#fff; padding:10px 14px;
+         display:flex; justify-content:space-between; align-items:flex-start}
+  header h1{font-size:17px; letter-spacing:.02em}
+  header h1 .mark{color:var(--accent)}
+  header .sub{font-size:9px; color:#9fb3c8; margin-top:2px}
+  header .meta{font-size:9px; color:#9fb3c8; text-align:right; line-height:1.6}
+  .projline{display:flex; justify-content:space-between; font-size:10px;
+            padding:7px 2px; border-bottom:1px solid var(--line)}
+  .projline b{font-weight:700}
+
+  .band{background:var(--band); font-size:10px; font-weight:700;
+        padding:3px 8px; margin-top:10px}
+  .grid{display:grid; gap:2px 14px; padding:8px 8px 10px;
+        border-bottom:1px solid var(--line)}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  .g6{grid-template-columns:repeat(6,1fr)}
+  .lbl{font-size:8.5px; color:var(--muted)}
+  .val{font-size:11.5px; font-weight:600}
+
+  .results{display:flex; gap:14px; padding:8px; border-bottom:1px solid var(--line)}
+  table{border-collapse:collapse; flex:1; font-size:10px}
+  th{font-size:8.5px; color:var(--muted); font-weight:600; text-align:left;
+     border-bottom:1.5px solid var(--line2); padding:3px 4px}
+  th.r,td.r{text-align:right}
+  td{padding:4px; border-bottom:1px solid var(--line)}
+  td .go{color:var(--accent); font-weight:700; font-size:9px; margin-left:6px}
+  td .rem{color:var(--muted); font-size:9px}
+
+  .side{width:250px; display:flex; flex-direction:column; gap:8px}
+  .stamps{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+  .stamp{border:2.5px solid; border-radius:7px; text-align:center; padding:7px 4px}
+  .stamp b{display:block; font-family:'IBM Plex Mono'; font-size:17px; letter-spacing:.04em}
+  .stamp small{font-size:7.5px}
+  .stamp.fail{color:var(--fail); border-color:var(--fail); background:#fdecec}
+  .stamp.pass{color:var(--pass); border-color:var(--pass); background:#e6f4ea}
+  .sketch{border:1px solid var(--line); background:#f7f9fb; padding:6px 4px 2px; text-align:center}
+  .sketch .cap{font-size:7.5px; color:var(--muted)}
+
+  .notes{padding:10px 8px 2px; font-size:9px}
+  .notes .nline{border-bottom:1px solid var(--line); height:16px}
+
+  .sig{display:grid; grid-template-columns:repeat(3,1fr); gap:12px; padding:10px 0 0}
+  .sigbox{border:1px solid var(--line); height:96px; text-align:center;
+          font-size:8.5px; color:var(--muted); padding-top:8px; position:relative}
+  .sigbox .who{font-size:9px}
+  .sigbox .sline{position:absolute; left:24px; right:24px; bottom:34px;
+                 border-bottom:1px solid var(--line2)}
+  .sigbox .nm{position:absolute; left:0; right:0; bottom:20px; font-size:8px}
+  .sigbox .dt{position:absolute; left:0; right:0; bottom:6px; font-size:8px}
+
+  footer{position:absolute; left:12mm; right:12mm; bottom:8mm;
+         border-top:1px solid var(--line); padding-top:5px;
+         display:flex; justify-content:space-between;
+         font-size:7.5px; color:var(--muted)}
+
+  @media print{
+    body{background:#fff; padding:0}
+    .page{box-shadow:none; width:auto; min-height:auto}
+    @page{size:A4; margin:0}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <div>
+      <h1><span class="mark">⌖</span> AS-BUILT PILE REPORT</h1>
+      <div class="sub">Pile position check by Total Station · รายงานตรวจสอบตำแหน่งเสาเข็ม</div>
+    </div>
+    <div class="meta">
+      Report No. : <span class="mono">PCR-2026-0015</span><br>
+      Date : <span class="mono">15 Jul 2026</span><br>
+      Page 1 / 1
+    </div>
+  </header>
+
+  <div class="projline">
+    <span><b>Project :</b> GULF MTP LNG RECEIVING TERMINAL PROJECT - Marine Works</span>
+    <span style="color:var(--muted)">Contractor : ____________ &nbsp;·&nbsp; Consultant : ____________</span>
+  </div>
+
+  <div class="band">1. PILE INFORMATION (DESIGN)</div>
+  <div class="grid g4">
+    <div><div class="lbl">Pile No.</div><div class="val mono">CTP1</div></div>
+    <div><div class="lbl">Diameter</div><div class="val mono">1,219.2 mm</div></div>
+    <div><div class="lbl">Design N (PN)</div><div class="val mono">10,207.470</div></div>
+    <div><div class="lbl">Cut-off EL.</div><div class="val mono">+4.000</div></div>
+    <div><div class="lbl">Incline</div><div class="val mono">BATT. (1:8)</div></div>
+    <div><div class="lbl">Length</div><div class="val mono">38.00 m</div></div>
+    <div><div class="lbl">Design E (PE)</div><div class="val mono">10,511.780</div></div>
+    <div><div class="lbl">Pile Tip Design · ปลายเข็มตามแบบ</div><div class="val mono">−34.000</div></div>
+    <!-- Batter Az. renders ONLY for battered piles; omitted entirely for VERT. piles -->
+    <div><div class="lbl">Batter Az. <span style="font-weight:400">(battered piles only · เฉพาะเข็มเอียง)</span></div><div class="val mono">135.351°</div></div>
+  </div>
+
+  <div class="band">2. SURVEY SETUP</div>
+  <div class="grid g4">
+    <div><div class="lbl">Station (STN)</div><div class="val mono">T02</div></div>
+    <!-- BS block renders ONLY when the record has BS data; omitted entirely otherwise -->
+    <div><div class="lbl">Backsight check <span style="font-weight:400">(shown only if checked · แสดงเมื่อมีการเช็คเท่านั้น)</span></div><div class="val mono" style="color:var(--pass)">TRUE <span class="rem" style="font-size:8.5px;color:var(--muted)">diff 0.004 ≤ 0.010 m</span></div></div>
+    <div><div class="lbl">Stage · ช่วง</div><div class="val">After driving · หลังตอก</div></div>
+    <div><div class="lbl">Surveyed by</div><div class="val" style="font-size:10px">setthawut.se11@gmail.com</div></div>
+    <div><div class="lbl">Measured at</div><div class="val mono">2026-07-15 08:19</div></div>
+    <div style="grid-column:span 3"><div class="lbl">Method</div>
+      <div class="val" style="font-size:9.5px;font-weight:400">Edge bisection (mean of left/right pan) at 2 points on pile surface + Point-3 mid cross-check</div></div>
+  </div>
+  <table style="width:100%; border-collapse:collapse; font-size:9.5px; margin:0 0 2px">
+    <tr>
+      <th style="font-size:8.5px;color:var(--muted);text-align:left;border-bottom:1.5px solid var(--line2);padding:3px 8px">Survey points (on pile surface) · จุดวัดบนผิวเข็ม</th>
+      <th class="r" style="font-size:8.5px;color:var(--muted);text-align:right;border-bottom:1.5px solid var(--line2);padding:3px 8px">Northing</th>
+      <th class="r" style="font-size:8.5px;color:var(--muted);text-align:right;border-bottom:1.5px solid var(--line2);padding:3px 8px">Easting</th>
+      <th class="r" style="font-size:8.5px;color:var(--muted);text-align:right;border-bottom:1.5px solid var(--line2);padding:3px 8px">Elev.</th>
+    </tr>
+    <tr>
+      <td style="padding:3px 8px;border-bottom:1px solid var(--line)">Point 1 — Top · จุดสูงสุด</td>
+      <td class="r mono" style="text-align:right;padding:3px 8px;border-bottom:1px solid var(--line)">10,207.618</td>
+      <td class="r mono" style="text-align:right;padding:3px 8px;border-bottom:1px solid var(--line)">10,511.703</td>
+      <td class="r mono" style="text-align:right;padding:3px 8px;border-bottom:1px solid var(--line)">+5.714</td>
+    </tr>
+    <tr>
+      <td style="padding:3px 8px;border-bottom:1px solid var(--line)">Point 3 — Mid · จุดกลาง (cross-check)</td>
+      <td class="r mono" style="text-align:right;padding:3px 8px;border-bottom:1px solid var(--line)">10,207.494</td>
+      <td class="r mono" style="text-align:right;padding:3px 8px;border-bottom:1px solid var(--line)">10,511.851</td>
+      <td class="r mono" style="text-align:right;padding:3px 8px;border-bottom:1px solid var(--line)">+4.046</td>
+    </tr>
+    <tr>
+      <td style="padding:3px 8px;border-bottom:1px solid var(--line)">Point 2 — Bottom · จุดต่ำสุด</td>
+      <td class="r mono" style="text-align:right;padding:3px 8px;border-bottom:1px solid var(--line)">10,207.353</td>
+      <td class="r mono" style="text-align:right;padding:3px 8px;border-bottom:1px solid var(--line)">10,512.000</td>
+      <td class="r mono" style="text-align:right;padding:3px 8px;border-bottom:1px solid var(--line)">+2.377</td>
+    </tr>
+  </table>
+
+  <div class="band">3. AS-BUILT RESULT @ DESIGN CUT-OFF LEVEL (+4.000)</div>
+  <div class="results">
+    <table>
+      <tr><th>Item</th><th class="r">Value</th><th>Remark</th></tr>
+      <tr><td>As-built Northing</td><td class="r mono"><b>10,207.688</b></td><td></td></tr>
+      <tr><td>As-built Easting</td><td class="r mono"><b>10,511.727</b></td><td></td></tr>
+      <tr><td>Diff Northing</td><td class="r mono"><b>+0.218</b></td><td><span class="go">GO SOUTH</span></td></tr>
+      <tr><td>Diff Easting</td><td class="r mono"><b>−0.053</b></td><td><span class="go">GO EAST</span></td></tr>
+      <tr><td>Total deviation</td><td class="r mono"><b>0.224</b></td><td class="rem">tolerance 0.150 m</td></tr>
+      <tr><td>Actual slope</td><td class="r mono"><b>1 : 8.38</b></td><td class="rem">design 1 : 8</td></tr>
+      <tr><td>Tilt diff from design</td><td class="r mono"><b>−0.323°</b></td><td class="rem">tolerance 1.0°</td></tr>
+      <tr><td>P3 residual (cross-check)</td><td class="r mono"><b>0.008</b></td><td class="rem">tolerance 0.020 m</td></tr>
+      <tr><td>Head moved during driving</td><td class="r mono"><b>0.070</b></td><td class="rem">before → after</td></tr>
+    </table>
+    <div class="side">
+      <div class="stamps">
+        <div class="stamp fail"><b>OVER</b><small>POSITION 0.224 &gt; 0.150 m</small></div>
+        <div class="stamp pass"><b>SLOPE OK</b><small>1:8.38 vs 1:8</small></div>
+        <div class="stamp pass"><b>P3 OK</b><small>residual 0.008 m</small></div>
+        <div class="stamp pass"><b>BS TRUE</b><small>setup verified</small></div>
+      </div>
+      <div class="sketch">
+        <div class="cap">PLAN VIEW — deviation (not to scale)</div>
+        <svg width="230" height="108" viewBox="0 0 230 108">
+          <line x1="115" y1="10" x2="115" y2="100" stroke="#9fb3c8" stroke-dasharray="3 3"/>
+          <line x1="25" y1="58" x2="205" y2="58" stroke="#9fb3c8" stroke-dasharray="3 3"/>
+          <text x="115" y="9" font-size="8" fill="#46586b" text-anchor="middle">N ↑</text>
+          <circle cx="115" cy="58" r="9" fill="none" stroke="#2b8a3e" stroke-width="1.5"/>
+          <line x1="108" y1="58" x2="122" y2="58" stroke="#2b8a3e"/>
+          <line x1="115" y1="51" x2="115" y2="65" stroke="#2b8a3e"/>
+          <line x1="115" y1="58" x2="158" y2="37" stroke="#c92a2a" stroke-width="1.6"/>
+          <circle cx="162" cy="35" r="5" fill="#c92a2a"/>
+          <text x="52" y="80" font-size="8" fill="#2b8a3e">⊕ design center</text>
+          <text x="158" y="26" font-size="8" fill="#c92a2a">as-built</text>
+          <text x="115" y="100" font-size="8" fill="#46586b" text-anchor="middle" font-family="IBM Plex Mono">dev 0.224 m @ Az 346°</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <div class="band">4. PILE TOE &amp; COATING (extended along actual axis) — coating must embed ≥ 2.000 m below seabed</div>
+  <div class="grid g6">
+    <div><div class="lbl">Toe N</div><div class="val mono">10,205.289</div></div>
+    <div><div class="lbl">Toe E</div><div class="val mono">10,511.818</div></div>
+    <div><div class="lbl">Toe Z</div><div class="val mono">−33.522</div></div>
+    <div><div class="lbl">Coating bottom EL.</div><div class="val mono">−25.647</div></div>
+    <div><div class="lbl">Seabed (measured)</div><div class="val mono">−16.500</div></div>
+    <div><div class="lbl">Margin to seabed <span style="font-weight:400">(req ≤ −2.000)</span></div><div class="val mono" style="color:var(--pass)"><b>−9.147</b> ✔ OK</div></div>
+  </div>
+
+  <div class="notes">
+    <b>Notes / หมายเหตุ :</b>
+    <div class="nline"></div>
+    <div class="nline"></div>
+  </div>
+
+  <div class="band">5. APPROVAL</div>
+  <div class="sig">
+    <div class="sigbox"><div class="who">Surveyed by · ผู้สำรวจ</div>
+      <div class="sline"></div><div class="nm">( setthawut.se11@gmail.com )</div><div class="dt">Date : 2026-07-15</div></div>
+    <div class="sigbox"><div class="who">Checked by · ผู้ตรวจสอบ</div>
+      <div class="sline"></div><div class="nm">(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;)</div><div class="dt">Date :</div></div>
+    <div class="sigbox"><div class="who">Approved by · ผู้อนุมัติ</div>
+      <div class="sline"></div><div class="nm">(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;)</div><div class="dt">Date :</div></div>
+  </div>
+
+  <footer>
+    <span>Generated by Pile Check · pile-check-app.pages.dev · 2026-07-15 09:12</span>
+    <span>Tolerances : position 0.150 m · tilt 1.0° · P3 residual 0.020 m · BS 0.010 m · coating embed ≥ 2.000 m below seabed</span>
+  </footer>
+</div>
+</body>
+</html>

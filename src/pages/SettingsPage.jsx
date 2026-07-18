@@ -7,6 +7,7 @@ const LABELS = {
   tol_tilt_deg: 'Tilt tolerance (°) · ค่าเผื่อความเอียง (องศา)',
   tol_residual_m: 'Residual tolerance (m) · ค่าเผื่อระยะเบี่ยงเบน P3 (ม.)',
   tol_bs_m: 'Backsight tolerance (m) · ค่าเผื่อหมุดหลัง (ม.)',
+  tol_coating_embed_m: 'Coating embed below seabed (m) · ระยะสีจมใต้ท้องทะเลขั้นต่ำ (ม.)',
 };
 
 const COLUMNS = [

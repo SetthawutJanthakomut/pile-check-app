@@ -17,7 +17,7 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
   const canSave = role === 'admin' || role === 'recorder';
   const [piles, setPiles] = useState([]);
   const [benchmarks, setBenchmarks] = useState([]);
-  const [tol, setTol] = useState({ positionM: 0.075, tiltDeg: 1.0, residualM: 0.02, bsM: 0.01 });
+  const [tol, setTol] = useState({ positionM: 0.075, tiltDeg: 1.0, residualM: 0.02, bsM: 0.01, coatingEmbedM: 2.0 });
   const [offline, setOffline] = useState(false);
 
   const [pileId, setPileId] = useState('');
@@ -78,6 +78,7 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
             tiltDeg: m.tol_tilt_deg ?? 1.0,
             residualM: m.tol_residual_m ?? 0.02,
             bsM: m.tol_bs_m ?? 0.01,
+            coatingEmbedM: m.tol_coating_embed_m ?? 2.0,
           });
         }
         setOffline(true);
@@ -89,6 +90,7 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
         tiltDeg: m.tol_tilt_deg ?? 1.0,
         residualM: m.tol_residual_m ?? 0.02,
         bsM: m.tol_bs_m ?? 0.01,
+        coatingEmbedM: m.tol_coating_embed_m ?? 2.0,
       });
       setOffline(false);
       await replaceAll(localdb.settings, s);

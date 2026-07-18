@@ -10,7 +10,13 @@
       "Bash(rm -f verify_freeze.mjs harness.html)",
       "Bash(rm -rf src/__harness__)",
       "Bash(npm uninstall *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(node render-test.mjs)",
+      "Bash(cd \"c:/Users/setth/pile-check-app\" && grep -o '.\\\\{60\\\\}— m.\\\\{20\\\\}' \"../render-test-vert.html\")",
+      "Read(//c/Users/setth/**)",
+      "WebSearch",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(npm view *)"
     ]
   }
 }

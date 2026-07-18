@@ -78,7 +78,14 @@ export default function ResultReadout({ results, p1El, tol, inc, stage, note }) 
           <div className="readout-grid">
             <div><span>Coat. bottom</span>{fmt(results.coatingBottomEl)}</div>
             <div><span>Seabed ({results.seabedSource})</span>{fmt(results.seabedUsed)}</div>
-            <div><span>Margin</span>{fmt(results.marginToSeabed)} <b>{results.marginLabel}</b></div>
+            <div>
+              <span>Margin</span>{fmt(results.marginToSeabed)} <b>{results.marginLabel}</b>
+              {results.coatingCheck && (
+                <span className={`stamp ${results.coatingCheck === 'OK' ? 'pass' : 'fail'}`}>
+                  {results.coatingCheck}
+                </span>
+              )}
+            </div>
           </div>
         )}
         {results.seabedDiff != null && (

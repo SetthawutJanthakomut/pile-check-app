@@ -1,6 +1,10 @@
+import { useState } from 'react';
 import ResultReadout from './ResultReadout';
 import { exportRecordsToExcel } from '../lib/exportExcel';
 import { fmt } from '../lib/format';
+import { fetchReportInputs } from '../reports/fetchReportData';
+import { printPileReport } from '../reports/printPileReport';
+import { savePileReportImage } from '../reports/savePileReportImage';
 
 function fmtWhen(row) {
   const t = row.measured_time
@@ -14,6 +18,37 @@ function fmtWhen(row) {
 // `pair` (optional) is { before, after } — the same-pile flattened rows for both driving stages.
 // When both are present, the modal renders two side-by-side readout cards instead of one.
 export default function RecordDetailModal({ row, pair, columns, onClose }) {
+  const [printing, setPrinting] = useState(null);
+  const [printError, setPrintError] = useState(null);
+  const [saving, setSaving] = useState(null);
+  const [saveError, setSaveError] = useState(null);
+
+  async function handlePrint(recordRow, siblingAsbuilt) {
+    setPrinting(recordRow.id);
+    setPrintError(null);
+    try {
+      const { record, pile, station, backsight, tol } = await fetchReportInputs(recordRow.id);
+      printPileReport({ record, pile, station, backsight, tol, siblingAsbuilt });
+    } catch (err) {
+      setPrintError(err.message);
+    } finally {
+      setPrinting(null);
+    }
+  }
+
+  async function handleSaveImage(recordRow, siblingAsbuilt) {
+    setSaving(recordRow.id);
+    setSaveError(null);
+    try {
+      const { record, pile, station, backsight, tol } = await fetchReportInputs(recordRow.id);
+      await savePileReportImage({ record, pile, station, backsight, tol, siblingAsbuilt });
+    } catch (err) {
+      setSaveError(err.message);
+    } finally {
+      setSaving(null);
+    }
+  }
+
   const both = pair && pair.before && pair.after;
 
   if (!both) {
@@ -31,6 +66,14 @@ export default function RecordDetailModal({ row, pair, columns, onClose }) {
           <button className="btn-secondary" onClick={() => exportRecordsToExcel(columns, [row])}>
             Export this record · ส่งออกระเบียนนี้
           </button>
+          <button className="btn-secondary" disabled={printing === row.id} onClick={() => handlePrint(row, null)}>
+            {printing === row.id ? 'Preparing… · กำลังเตรียม' : 'PDF report · รายงาน PDF'}
+          </button>
+          <button className="btn-secondary" disabled={saving === row.id} onClick={() => handleSaveImage(row, null)}>
+            {saving === row.id ? 'Preparing… · กำลังเตรียม' : 'Save image · บันทึกรูป'}
+          </button>
+          {printError && <p className="form-err">{printError}</p>}
+          {saveError && <p className="form-err">{saveError}</p>}
         </div>
       </div>
     );
@@ -65,12 +108,30 @@ export default function RecordDetailModal({ row, pair, columns, onClose }) {
           <div className="card modal-column">
             <p className="hint">{before.surveyor} · {fmtWhen(before)}</p>
             <ResultReadout results={before} p1El={before.p1el} stage="before" note={before.note} />
+            <button className="btn-secondary" disabled={printing === before.id}
+              onClick={() => handlePrint(before, { asbuiltN: after.asbuiltN, asbuiltE: after.asbuiltE })}>
+              {printing === before.id ? 'Preparing… · กำลังเตรียม' : 'PDF report · รายงาน PDF'}
+            </button>
+            <button className="btn-secondary" disabled={saving === before.id}
+              onClick={() => handleSaveImage(before, { asbuiltN: after.asbuiltN, asbuiltE: after.asbuiltE })}>
+              {saving === before.id ? 'Preparing… · กำลังเตรียม' : 'Save image · บันทึกรูป'}
+            </button>
           </div>
           <div className="card modal-column">
             <p className="hint">{after.surveyor} · {fmtWhen(after)}</p>
             <ResultReadout results={after} p1El={after.p1el} stage="after" note={after.note} />
+            <button className="btn-secondary" disabled={printing === after.id}
+              onClick={() => handlePrint(after, { asbuiltN: before.asbuiltN, asbuiltE: before.asbuiltE })}>
+              {printing === after.id ? 'Preparing… · กำลังเตรียม' : 'PDF report · รายงาน PDF'}
+            </button>
+            <button className="btn-secondary" disabled={saving === after.id}
+              onClick={() => handleSaveImage(after, { asbuiltN: before.asbuiltN, asbuiltE: before.asbuiltE })}>
+              {saving === after.id ? 'Preparing… · กำลังเตรียม' : 'Save image · บันทึกรูป'}
+            </button>
           </div>
         </div>
+        {printError && <p className="form-err">{printError}</p>}
+        {saveError && <p className="form-err">{saveError}</p>}
         <button className="btn-secondary" onClick={() => exportRecordsToExcel(columns, [before, after])}>
           Export both records · ส่งออกทั้งสองระเบียน
         </button>

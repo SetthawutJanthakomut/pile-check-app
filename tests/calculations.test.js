@@ -14,7 +14,7 @@ const input = {
   p2: { n: 1397964.583, e: 733027.566, el: 2.377 },
   p3: { n: 1397964.7235, e: 733027.4175, el: 4.0455 },
   measuredSeabed: -16.50,
-  tol: { positionM: 0.075, tiltDeg: 1.0, residualM: 0.020 },
+  tol: { positionM: 0.075, tiltDeg: 1.0, residualM: 0.020, coatingEmbedM: 2.0 },
 };
 
 const expected = {
@@ -40,6 +40,7 @@ const expected = {
   toeZ: -29.1389363964132,
   coatingBottomEl: -24.0748345268489,
   marginToSeabed: -7.57483452684885,
+  coatingEmbedM: 7.57483452684885,
   seabedDiff: -0.68,
 };
 
@@ -47,7 +48,7 @@ const expectedLabels = {
   dirN: 'GO SOUTH', dirE: 'GO EAST',
   posCheck: 'OVER', p3Check: 'OK', slopeCheck: 'OK',
   marginLabel: 'Below seabed', seabedDiffLabel: 'Deeper (scour)',
-  seabedSource: 'measured',
+  seabedSource: 'measured', coatingCheck: 'OK',
 };
 
 const out = computeAll(input);
@@ -79,6 +80,12 @@ const out3 = computeAll({
 if (out3.designTilt !== 0 || out3.diffBatterAz !== null) {
   fails++; console.error('FAIL vertical pile handling');
 } else console.log('ok  vertical pile: designTilt=0, diffBatterAz=null');
+
+// coating embedment check: tighter tolerance flips OK -> OVER
+const out4 = computeAll({ ...input, tol: { ...input.tol, coatingEmbedM: 8.0 } });
+if (out4.coatingCheck !== 'OVER') {
+  fails++; console.error(`FAIL coatingCheck (tol=8.0): got ${out4.coatingCheck}, expected OVER`);
+} else console.log(`ok  coatingCheck (tol=8.0) = ${out4.coatingCheck}`);
 
 // BS check
 const bs = bsCheck({ n: 1397885.144, e: 733040.763 }, { n: 1397885.144, e: 733040.763 }, 0.010);

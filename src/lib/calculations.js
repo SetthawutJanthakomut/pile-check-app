@@ -156,6 +156,14 @@ export function computeAll({ design, stn, p1, p2, p3 = null, measuredSeabed = nu
     out.marginLabel = out.seabedSource = null;
   }
 
+  // --- coating embedment below seabed check ---
+  if (out.marginToSeabed != null && tol.coatingEmbedM != null) {
+    out.coatingCheck = out.marginToSeabed <= -tol.coatingEmbedM ? 'OK' : 'OVER';
+    out.coatingEmbedM = Math.abs(Math.min(out.marginToSeabed, 0));
+  } else {
+    out.coatingCheck = null;
+  }
+
   // --- seabed re-survey comparison ---
   if (measuredSeabed != null && design.seaBedLevel != null) {
     out.seabedDiff = measuredSeabed - design.seaBedLevel;
