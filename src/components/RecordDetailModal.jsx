@@ -68,9 +68,9 @@ function OtherSurveys({ members, primary, tol, canSetPrimary, onSetPrimary }) {
 
 // `row` is the clicked table row — only its pile_no/pile_stage identify which
 // group to show. The modal always displays a group's EFFECTIVE PRIMARY record
-// (see lib/primary.js), so the on-screen data, PDF/PNG report, and the ★ shown
-// in the records table always agree — never printing something different from
-// what's on screen.
+// (see lib/primary.js), so the on-screen data, PDF/PNG report, and the flat
+// table row always agree — never printing something different from what's
+// on screen.
 // `group` is { before: Row[], after: Row[] } — all rows for this pile_no, grouped by stage.
 // `tolCrossCheckM` is the max allowed diff between two surveys of the same pile+stage.
 export default function RecordDetailModal({ row, group, tolCrossCheckM, columns, canSetPrimary, onSetPrimary, onClose }) {
