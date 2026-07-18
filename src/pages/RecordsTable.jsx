@@ -15,7 +15,9 @@ function fmtDateTime(measuredAt, measuredTime) {
   return `${measuredAt ?? '—'} ${t}`.trim();
 }
 
-const COLUMNS = [
+// Exported so other read paths (e.g. the Plan tab's popover) can hand the
+// same column set to exportRecordsToExcel / RecordDetailModal.
+export const COLUMNS = [
   { key: 'no', label: 'No.', type: 'readonly', width: 44, render: (v) => v ?? '—' },
   { key: 'pile_no', label: 'Pile No. · เลขเข็ม', type: 'readonly', width: 90 },
   { key: 'pile_stage', label: 'Stage · ระยะ', type: 'readonly', width: 80, render: (v) => STAGE_SHORT[v] ?? '—' },

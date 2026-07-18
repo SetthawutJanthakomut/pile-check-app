@@ -9,11 +9,13 @@ import FormPage from './pages/FormPage';
 import PilesTable from './pages/PilesTable';
 import BenchmarksTable from './pages/BenchmarksTable';
 import RecordsTable from './pages/RecordsTable';
+import PlanView from './pages/PlanView';
 import SettingsPage from './pages/SettingsPage';
 import UsersPage from './pages/UsersPage';
 
 const PAGES = [
   { key: 'form', label: 'Form · แบบฟอร์ม' },
+  { key: 'plan', label: 'Plan · แผนผัง' },
   { key: 'piles', label: 'Design Piles · เข็มออกแบบ' },
   { key: 'benchmarks', label: 'Benchmarks · หมุดอ้างอิง' },
   { key: 'records', label: 'Records · บันทึก' },
@@ -159,6 +161,7 @@ export default function App() {
           onEditSaved={() => { setEditRecord(null); setPage('records'); }}
         />
       </div>
+      <div style={{ display: page === 'plan' ? '' : 'none' }}><PlanView /></div>
       <div style={{ display: page === 'piles' ? '' : 'none' }}><PilesTable role={role} /></div>
       <div style={{ display: page === 'benchmarks' ? '' : 'none' }}><BenchmarksTable role={role} /></div>
       <div style={{ display: page === 'records' ? '' : 'none' }}>

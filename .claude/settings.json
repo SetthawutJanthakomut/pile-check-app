@@ -19,7 +19,13 @@
       "Bash(npm view *)",
       "Bash(git status *)",
       "Bash(git check-ignore *)",
-      "Bash(grep -an \"viewColumns\\\\|_view\\\\|DataTable$\\\\|rows={rows}\\\\|rowClassName\" \"c:/Users/setth/pile-check-app/src/pages/RecordsTable.jsx\")"
+      "Bash(grep -an \"viewColumns\\\\|_view\\\\|DataTable$\\\\|rows={rows}\\\\|rowClassName\" \"c:/Users/setth/pile-check-app/src/pages/RecordsTable.jsx\")",
+      "Bash(git commit *)",
+      "Bash(find \"c:\\\\Users\\\\setth\\\\pile-check-app\\\\.claude\" -type f 2>/dev/null; find \"c:\\\\Users\\\\setth\" -maxdepth 2 -iname \".claude\" 2>/dev/null)",
+      "Bash(node -e ' *)",
+      "Bash(node check-plan.js)",
+      "Bash(pkill -f \"npm run dev\")",
+      "Bash(rm -f \"C:\\\\Users\\\\setth\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-setth-pile-check-app\\\\809fb235-3e78-45ab-98e5-5e57401922bc\\\\scratchpad\"/*.png)"
     ]
   }
 }
