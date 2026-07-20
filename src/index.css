@@ -314,6 +314,16 @@ body {
 .verdict-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 8px; }
 .verdict-row .stamp.pass { background: rgba(43, 138, 62, 0.15); }
 .verdict-row .stamp.fail { background: rgba(201, 42, 42, 0.18); }
+
+/* ---------- plan view (deviation sketch) ---------- */
+.plan-view {
+  margin: 4px 0 10px;
+  padding: 8px;
+  border: 1px solid #1f3446;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
 .more summary {
   cursor: pointer; font: 500 13px var(--font); color: var(--lcd-dim);
   padding: 6px 0;

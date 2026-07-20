@@ -1,4 +1,6 @@
 import { fmt, num } from '../lib/format';
+import { posCheckFor } from '../lib/calculations';
+import DeviationPlanView from './DeviationPlanView';
 
 const STAGE_LABEL = {
   before: 'Before driving · ก่อนตอก',
@@ -9,6 +11,10 @@ const STAGE_LABEL = {
 // `tol` and `inc` are optional — when omitted, the tolerance/design-slope hints are left out.
 // `stage` and `note` are optional — when omitted, the stage/note block is left out.
 export default function ResultReadout({ results, p1El, tol, inc, stage, note }) {
+  // Re-evaluate against the LIVE tolerance rather than trusting the cached
+  // results.posCheck, which reflects whatever tolerance was set at save time.
+  // Falls back to the cached verdict when no tolerance is loaded (tol omitted).
+  const posCheck = tol ? posCheckFor(results.totalDev, tol.positionM) : results.posCheck;
   return (
     <section className="readout mono">
       {(stage || note) && (
@@ -28,8 +34,8 @@ export default function ResultReadout({ results, p1El, tol, inc, stage, note }) 
         <div><span>Diff E</span>{fmt(results.diffE)} <b>{results.dirE}</b></div>
       </div>
       <div className="verdict-row">
-        <div className={`stamp big ${results.posCheck === 'OK' ? 'pass' : 'fail'}`}>
-          {results.posCheck}
+        <div className={`stamp big ${posCheck === 'OK' ? 'pass' : 'fail'}`}>
+          {posCheck}
           <small>total {fmt(results.totalDev)} m{tol ? ` / tol ${tol.positionM}` : ''}</small>
         </div>
         <div className={`stamp ${results.slopeCheck === 'OK' ? 'pass' : 'fail'}`}>
@@ -42,6 +48,16 @@ export default function ResultReadout({ results, p1El, tol, inc, stage, note }) 
             <small>res {fmt(results.residual, 4)} m</small>
           </div>
         )}
+      </div>
+
+      <div className="plan-view">
+        <DeviationPlanView
+          diffN={results.diffN}
+          diffE={results.diffE}
+          totalDev={results.totalDev}
+          tolerance={tol?.positionM}
+          posCheck={posCheck}
+        />
       </div>
 
       <details className="more">

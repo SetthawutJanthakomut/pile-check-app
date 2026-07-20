@@ -1,7 +1,6 @@
 import { fmt } from '../lib/format';
-import { azimuth, bsCheck, parseIncline } from '../lib/calculations';
-
-const D2R = Math.PI / 180;
+import { bsCheck, parseIncline, posCheckFor } from '../lib/calculations';
+import DeviationPlanView from '../components/DeviationPlanView';
 
 const STAGE_LABEL = {
   before: 'Before driving · ก่อนตอก',
@@ -36,39 +35,6 @@ const POINT_LABEL = {
   2: 'Point 2 — Bottom · จุดต่ำสุด',
 };
 
-// Fixed-length deviation arrow — direction is real, magnitude is not to scale (per mockup caption).
-function DeviationSketch({ pile, results }) {
-  const cx = 115, cy = 58, R = 43;
-  const az = azimuth(pile.coordinate_pn, pile.coordinate_pe, results.asbuiltN, results.asbuiltE);
-  const rad = az * D2R;
-  const x2 = cx + R * Math.sin(rad);
-  const y2 = cy - R * Math.cos(rad);
-  const dotR = R + 6;
-  const dotX = cx + dotR * Math.sin(rad);
-  const dotY = cy - dotR * Math.cos(rad);
-
-  return (
-    <div className="sketch">
-      <div className="cap">PLAN VIEW — deviation (not to scale)</div>
-      <svg width="230" height="108" viewBox="0 0 230 108">
-        <line x1="115" y1="10" x2="115" y2="100" stroke="#9fb3c8" strokeDasharray="3 3" />
-        <line x1="25" y1="58" x2="205" y2="58" stroke="#9fb3c8" strokeDasharray="3 3" />
-        <text x="115" y="9" fontSize="8" fill="#46586b" textAnchor="middle">N ↑</text>
-        <circle cx={cx} cy={cy} r="9" fill="none" stroke="#2b8a3e" strokeWidth="1.5" />
-        <line x1={cx - 7} y1={cy} x2={cx + 7} y2={cy} stroke="#2b8a3e" />
-        <line x1={cx} y1={cy - 7} x2={cx} y2={cy + 7} stroke="#2b8a3e" />
-        <line x1={cx} y1={cy} x2={x2} y2={y2} stroke="#c92a2a" strokeWidth="1.6" />
-        <circle cx={dotX} cy={dotY} r="5" fill="#c92a2a" />
-        <text x="52" y="80" fontSize="8" fill="#2b8a3e">⊕ design center</text>
-        <text x={x2} y={y2 - 9} fontSize="8" fill="#c92a2a">as-built</text>
-        <text x="115" y="100" fontSize="8" fill="#46586b" textAnchor="middle" fontFamily="IBM Plex Mono">
-          dev {fmt(results.totalDev)} m @ Az {Math.round(az)}°
-        </text>
-      </svg>
-    </div>
-  );
-}
-
 /**
  * record:    full asbuilt_records row (results jsonb spread as record.results, plus
  *            bs_measured_n/e, note, pile_stage, measured_at, measured_time, surveyor, id)
@@ -83,6 +49,9 @@ export default function PileReport({ record, pile, station, backsight, tol, sibl
   const results = record.results;
   const inc = parseIncline(pile.incline);
   const isBattered = results.designBatterAz != null;
+  // Re-evaluate against the LIVE tolerance rather than trusting the cached
+  // results.posCheck, which reflects whatever tolerance was set at save time.
+  const posCheck = posCheckFor(results.totalDev, tol.positionM);
 
   const surveyPoints = {};
   (record.survey_points ?? []).forEach((p) => { surveyPoints[p.point_no] = p; });
@@ -201,9 +170,9 @@ export default function PileReport({ record, pile, station, backsight, tol, sibl
         </table>
         <div className="side">
           <div className="stamps">
-            <div className={`stamp ${results.posCheck === 'OK' ? 'pass' : 'fail'}`}>
-              <b>{results.posCheck}</b>
-              <small>POSITION {fmt(results.totalDev)} {results.posCheck === 'OK' ? '≤' : '>'} {fmt(tol.positionM, 3)} m</small>
+            <div className={`stamp ${posCheck === 'OK' ? 'pass' : 'fail'}`}>
+              <b>{posCheck}</b>
+              <small>POSITION {fmt(results.totalDev)} {posCheck === 'OK' ? '≤' : '>'} {fmt(tol.positionM, 3)} m</small>
             </div>
             <div className={`stamp ${results.slopeCheck === 'OK' ? 'pass' : 'fail'}`}>
               <b>SLOPE {results.slopeCheck}</b>
@@ -222,7 +191,15 @@ export default function PileReport({ record, pile, station, backsight, tol, sibl
               </div>
             )}
           </div>
-          <DeviationSketch pile={pile} results={results} />
+          <div className="sketch">
+            <DeviationPlanView
+              diffN={results.diffN}
+              diffE={results.diffE}
+              totalDev={results.totalDev}
+              tolerance={tol.positionM}
+              posCheck={posCheck}
+            />
+          </div>
         </div>
       </div>
 

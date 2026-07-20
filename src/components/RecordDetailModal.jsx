@@ -73,7 +73,9 @@ function OtherSurveys({ members, primary, tol, canSetPrimary, onSetPrimary }) {
 // on screen.
 // `group` is { before: Row[], after: Row[] } — all rows for this pile_no, grouped by stage.
 // `tolCrossCheckM` is the max allowed diff between two surveys of the same pile+stage.
-export default function RecordDetailModal({ row, group, tolCrossCheckM, columns, canSetPrimary, onSetPrimary, onClose }) {
+// `tolPositionM` is the live position tolerance — passed through to ResultReadout so its
+// OK/OVER verdict matches the current Settings value instead of the cached save-time one.
+export default function RecordDetailModal({ row, group, tolCrossCheckM, tolPositionM, columns, canSetPrimary, onSetPrimary, onClose }) {
   const [printing, setPrinting] = useState(null);
   const [printError, setPrintError] = useState(null);
   const [saving, setSaving] = useState(null);
@@ -125,7 +127,7 @@ export default function RecordDetailModal({ row, group, tolCrossCheckM, columns,
             </div>
             <button className="link" onClick={onClose}>Close · ปิด</button>
           </div>
-          <ResultReadout results={primary} p1El={primary.p1el} stage={primary.pile_stage} note={primary.note} />
+          <ResultReadout results={primary} p1El={primary.p1el} tol={tolPositionM != null ? { positionM: tolPositionM } : undefined} stage={primary.pile_stage} note={primary.note} />
           <OtherSurveys members={stageGroup} primary={primary} tol={tolCrossCheckM} canSetPrimary={canSetPrimary} onSetPrimary={onSetPrimary} />
           <button className="btn-secondary" onClick={() => exportRecordsToExcel(columns, [primary])}>
             Export this record · ส่งออกระเบียนนี้
@@ -175,7 +177,7 @@ export default function RecordDetailModal({ row, group, tolCrossCheckM, columns,
           <div className="card modal-column">
             <p className="hint">{beforePrimary.surveyor} · {fmtWhen(beforePrimary)}</p>
             <CrossCheckBadge cc={ccBefore} tol={tolCrossCheckM} />
-            <ResultReadout results={beforePrimary} p1El={beforePrimary.p1el} stage="before" note={beforePrimary.note} />
+            <ResultReadout results={beforePrimary} p1El={beforePrimary.p1el} tol={tolPositionM != null ? { positionM: tolPositionM } : undefined} stage="before" note={beforePrimary.note} />
             <OtherSurveys members={beforeGroup} primary={beforePrimary} tol={tolCrossCheckM} canSetPrimary={canSetPrimary} onSetPrimary={onSetPrimary} />
             <button className="btn-secondary" disabled={printing === beforePrimary.id}
               onClick={() => handlePrint(beforePrimary, { asbuiltN: afterPrimary.asbuiltN, asbuiltE: afterPrimary.asbuiltE }, ccBefore)}>
@@ -189,7 +191,7 @@ export default function RecordDetailModal({ row, group, tolCrossCheckM, columns,
           <div className="card modal-column">
             <p className="hint">{afterPrimary.surveyor} · {fmtWhen(afterPrimary)}</p>
             <CrossCheckBadge cc={ccAfter} tol={tolCrossCheckM} />
-            <ResultReadout results={afterPrimary} p1El={afterPrimary.p1el} stage="after" note={afterPrimary.note} />
+            <ResultReadout results={afterPrimary} p1El={afterPrimary.p1el} tol={tolPositionM != null ? { positionM: tolPositionM } : undefined} stage="after" note={afterPrimary.note} />
             <OtherSurveys members={afterGroup} primary={afterPrimary} tol={tolCrossCheckM} canSetPrimary={canSetPrimary} onSetPrimary={onSetPrimary} />
             <button className="btn-secondary" disabled={printing === afterPrimary.id}
               onClick={() => handlePrint(afterPrimary, { asbuiltN: beforePrimary.asbuiltN, asbuiltE: beforePrimary.asbuiltE }, ccAfter)}>

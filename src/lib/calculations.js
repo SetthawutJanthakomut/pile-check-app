@@ -52,6 +52,14 @@ export function crossCheckDiff(a, b) {
   return Math.hypot(a.asbuiltN - b.asbuiltN, a.asbuiltE - b.asbuiltE);
 }
 
+/** Position check verdict for a given deviation + tolerance. Exported so display
+ *  components can re-evaluate against the LIVE project tolerance instead of
+ *  trusting `results.posCheck`, which is cached at save time and goes stale
+ *  the moment someone edits the tolerance in Settings afterward. */
+export function posCheckFor(totalDev, tolPositionM) {
+  return totalDev <= tolPositionM ? 'OK' : 'OVER';
+}
+
 /**
  * Full pipeline. Inputs:
  *  design: { pn, pe, cutoff, diaMm, incline, batterAzDeg|null, lengthM|null,
@@ -90,7 +98,7 @@ export function computeAll({ design, stn, p1, p2, p3 = null, measuredSeabed = nu
   out.diffE = out.asbuiltE - design.pe;                               // AH
   out.dirE = out.diffE < 0 ? 'GO EAST' : 'GO WEST';                   // AI
   out.totalDev = Math.hypot(out.diffN, out.diffE);                    // AJ
-  out.posCheck = out.totalDev <= tol.positionM ? 'OK' : 'OVER';       // AK
+  out.posCheck = posCheckFor(out.totalDev, tol.positionM);            // AK
 
   // --- Point-3 cross-check ---
   if (p3 && p3.n != null) {

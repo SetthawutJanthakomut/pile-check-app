@@ -1,7 +1,7 @@
 // Run: node tests/calculations.test.js
 // Every expected value below was read from the verified Excel workbook
 // (LibreOffice-recalculated) and cross-checked against the original file.
-import { computeAll, bsCheck, crossCheckDiff } from '../src/lib/calculations.js';
+import { computeAll, bsCheck, crossCheckDiff, posCheckFor } from '../src/lib/calculations.js';
 
 const input = {
   design: {
@@ -100,6 +100,17 @@ else console.log('ok  crossCheckDiff identical = 0');
 const cc2 = crossCheckDiff({ asbuiltN: 100, asbuiltE: 200 }, { asbuiltN: 100.03, asbuiltE: 200.04 });
 if (Math.abs(cc2 - 0.05) > 1e-9) { fails++; console.error(`FAIL crossCheckDiff 3-4-5: got ${cc2}, expected 0.05`); }
 else console.log(`ok  crossCheckDiff 3-4-5 = ${cc2}`);
+
+// posCheckFor: same deviation, different tolerance -> different verdict.
+// Guards against display components trusting a stale cached posCheck instead
+// of re-evaluating against the current project tolerance (0.222 <= 0.300 must
+// read OK even though it was OVER against a tighter tolerance at save time).
+if (posCheckFor(0.222, 0.075) !== 'OVER') {
+  fails++; console.error(`FAIL posCheckFor(0.222, 0.075): expected OVER, got ${posCheckFor(0.222, 0.075)}`);
+} else console.log('ok  posCheckFor(0.222, 0.075) = OVER');
+if (posCheckFor(0.222, 0.300) !== 'OK') {
+  fails++; console.error(`FAIL posCheckFor(0.222, 0.300): expected OK, got ${posCheckFor(0.222, 0.300)}`);
+} else console.log('ok  posCheckFor(0.222, 0.300) = OK');
 
 console.log(fails === 0 ? '\nALL TESTS PASSED ✓' : `\n${fails} TEST(S) FAILED ✗`);
 process.exit(fails === 0 ? 0 : 1);

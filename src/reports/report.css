@@ -51,7 +51,6 @@ td .rem{color:var(--muted); font-size:9px}
 .stamp.fail{color:var(--fail); border-color:var(--fail); background:#fdecec}
 .stamp.pass{color:var(--pass); border-color:var(--pass); background:#e6f4ea}
 .sketch{border:1px solid var(--line); background:#f7f9fb; padding:6px 4px 2px; text-align:center}
-.sketch .cap{font-size:7.5px; color:var(--muted)}
 
 .notes{padding:10px 8px 2px; font-size:9px}
 .notes .nline{border-bottom:1px solid var(--line); height:16px}

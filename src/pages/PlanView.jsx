@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { effectivePrimary } from '../lib/primary';
-import { crossCheckDiff } from '../lib/calculations';
+import { crossCheckDiff, posCheckFor } from '../lib/calculations';
 import { fmt } from '../lib/format';
 import RecordDetailModal from '../components/RecordDetailModal';
 import { COLUMNS } from './RecordsTable';
@@ -67,8 +67,8 @@ const LEGEND_ITEMS = [
   { key: 'disagree', label: 'ผลวัดไม่ตรงกัน · Surveys disagree' },
 ];
 
-function statusLine(label, primary) {
-  return primary ? `${label}: ${primary.posCheck} ${fmt(primary.totalDev, 3)} m` : `${label}: —`;
+function statusLine(label, primary, tolPositionM) {
+  return primary ? `${label}: ${posCheckFor(primary.totalDev, tolPositionM)} ${fmt(primary.totalDev, 3)} m` : `${label}: —`;
 }
 
 function PileMarker({ info, proj, r, showLabel, dim, pulsing, onSelect }) {
@@ -118,6 +118,7 @@ export default function PlanView() {
   const [piles, setPiles] = useState([]);
   const [recordsByPile, setRecordsByPile] = useState({});
   const [tol, setTol] = useState(0.03);
+  const [tolPositionM, setTolPositionM] = useState(0.075);
   const [loading, setLoading] = useState(true);
 
   const containerRef = useRef(null);
@@ -144,11 +145,14 @@ export default function PlanView() {
         supabase.from('piles').select('id, pile_no, coordinate_pn, coordinate_pe, incline').order('pile_no'),
         supabase.from('asbuilt_records')
           .select('*, piles(pile_no), station:benchmarks!station_id(name), survey_points(point_no, northing, easting, elevation)'),
-        supabase.from('project_settings').select('value').eq('key', 'tol_cross_check_m').single(),
+        supabase.from('project_settings').select('key, value').in('key', ['tol_cross_check_m', 'tol_position_m']),
       ]);
       if (cancelled) return;
       setPiles(pilesRes.data ?? []);
-      if (tolRes.data?.value != null) setTol(tolRes.data.value);
+      (tolRes.data ?? []).forEach((r) => {
+        if (r.key === 'tol_cross_check_m' && r.value != null) setTol(r.value);
+        if (r.key === 'tol_position_m' && r.value != null) setTolPositionM(r.value);
+      });
       const grouped = {};
       (recRes.data ?? []).forEach((r) => {
         const flat = flattenRecord(r);
@@ -173,12 +177,12 @@ export default function PlanView() {
       const beforePrimary = effectivePrimary(beforeArr);
       const afterPrimary = effectivePrimary(afterArr);
       let status = 'none';
-      if (afterPrimary) status = afterPrimary.posCheck === 'OK' ? 'afterOk' : 'afterOver';
+      if (afterPrimary) status = posCheckFor(afterPrimary.totalDev, tolPositionM) === 'OK' ? 'afterOk' : 'afterOver';
       else if (beforePrimary) status = 'beforeOnly';
-      const beforeOver = status === 'beforeOnly' && beforePrimary?.posCheck === 'OVER';
+      const beforeOver = status === 'beforeOnly' && beforePrimary && posCheckFor(beforePrimary.totalDev, tolPositionM) === 'OVER';
       const disagree = crossCheckMax(beforeArr) > tol || crossCheckMax(afterArr) > tol;
       return { pile: p, beforeArr, afterArr, beforePrimary, afterPrimary, status, beforeOver, disagree };
-    }), [piles, recordsByPile, tol]);
+    }), [piles, recordsByPile, tol, tolPositionM]);
 
   const counts = useMemo(() => {
     const c = { none: 0, beforeOnly: 0, afterOk: 0, afterOver: 0, disagree: 0 };
@@ -514,8 +518,8 @@ export default function PlanView() {
                 <button className="link" onClick={() => setSelectedPile(null)}>✕</button>
               </div>
               <p className="hint">Incline · ความเอียง: {popoverInfo.pile.incline || '—'}</p>
-              <div className="plan-popover-line">{statusLine('ก่อนตอก', popoverInfo.beforePrimary)}</div>
-              <div className="plan-popover-line">{statusLine('หลังตอก', popoverInfo.afterPrimary)}</div>
+              <div className="plan-popover-line">{statusLine('ก่อนตอก', popoverInfo.beforePrimary, tolPositionM)}</div>
+              <div className="plan-popover-line">{statusLine('หลังตอก', popoverInfo.afterPrimary, tolPositionM)}</div>
               {(popoverInfo.afterPrimary || popoverInfo.beforePrimary) && (
                 <button className="btn-secondary" onClick={() => handleViewRecord(popoverInfo)}>
                   View record · ดูบันทึก
@@ -531,6 +535,7 @@ export default function PlanView() {
           row={modalGroup.row}
           group={modalGroup.group}
           tolCrossCheckM={tol}
+          tolPositionM={tolPositionM}
           columns={COLUMNS}
           canSetPrimary={false}
           onSetPrimary={() => {}}

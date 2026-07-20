@@ -6,7 +6,7 @@ import DataTable, { useFrozenColumns, FreezeColumnsMenu } from '../components/Da
 import { exportRecordsToExcel } from '../lib/exportExcel';
 import RecordDetailModal from '../components/RecordDetailModal';
 import { effectivePrimary } from '../lib/primary';
-import { crossCheckDiff } from '../lib/calculations';
+import { crossCheckDiff, posCheckFor } from '../lib/calculations';
 
 const STAGE_SHORT = { before: 'ก่อนตอก', after: 'หลังตอก' };
 
@@ -86,6 +86,7 @@ export default function RecordsTable({ session, role, onEdit }) {
   const [selectedRow, setSelectedRow] = useState(null);
   const [pending, setPending] = useState([]);
   const [tolCrossCheckM, setTolCrossCheckM] = useState(0.03);
+  const [tolPositionM, setTolPositionM] = useState(0.075);
   const [frozenKeys, toggleFrozen, resetFrozen] = useFrozenColumns('recordsTable.frozenCols', DEFAULT_FROZEN_KEYS);
 
   useEffect(() => {
@@ -95,8 +96,11 @@ export default function RecordsTable({ session, role, onEdit }) {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from('project_settings').select('value').eq('key', 'tol_cross_check_m').single();
-      if (data?.value != null) setTolCrossCheckM(data.value);
+      const { data } = await supabase.from('project_settings').select('key, value').in('key', ['tol_cross_check_m', 'tol_position_m']);
+      (data ?? []).forEach((r) => {
+        if (r.key === 'tol_cross_check_m' && r.value != null) setTolCrossCheckM(r.value);
+        if (r.key === 'tol_position_m' && r.value != null) setTolPositionM(r.value);
+      });
     })();
   }, []);
 
@@ -151,6 +155,9 @@ export default function RecordsTable({ session, role, onEdit }) {
         pile_stage: r.pile_stage,
         note: r.note,
         ...res,
+        // Re-evaluate against the LIVE tolerance rather than trusting the cached
+        // res.posCheck, which reflects whatever tolerance was set at save time.
+        posCheck: res.totalDev != null ? posCheckFor(res.totalDev, tolPositionM) : res.posCheck,
       };
     });
 
@@ -179,6 +186,7 @@ export default function RecordsTable({ session, role, onEdit }) {
         note: item.record.note,
         _pending: true,
         ...res,
+        posCheck: res.totalDev != null ? posCheckFor(res.totalDev, tolPositionM) : res.posCheck,
       };
     });
 
@@ -194,7 +202,7 @@ export default function RecordsTable({ session, role, onEdit }) {
       return bt - at;
     });
     return combined;
-  }, [filtered, pendingFiltered]);
+  }, [filtered, pendingFiltered, tolPositionM]);
 
   // Group flattened rows by pile_no + pile_stage so the detail modal can show
   // before+after side by side, and multiple same-pile+stage surveys can be
@@ -347,6 +355,7 @@ export default function RecordsTable({ session, role, onEdit }) {
           row={selectedRow}
           group={rowsByPile[selectedRow.pile_no]}
           tolCrossCheckM={tolCrossCheckM}
+          tolPositionM={tolPositionM}
           columns={COLUMNS}
           canSetPrimary={role === 'admin' || role === 'recorder'}
           onSetPrimary={handleSetPrimary}
