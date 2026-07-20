@@ -487,3 +487,76 @@ body {
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* ---------- photos ---------- */
+.photo-badge {
+  display: inline-block;
+  font: 600 11px var(--font);
+  color: var(--ink-soft); background: var(--paper); border: 1px solid var(--line);
+  border-radius: 6px; padding: 2px 6px; margin-right: 6px;
+}
+.photo-add-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.photo-thumb-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.photo-thumb {
+  width: 120px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.photo-thumb img {
+  width: 120px; height: 120px; object-fit: cover;
+  border-radius: 8px; border: 1px solid var(--line);
+}
+.photo-thumb select {
+  font: 500 12px var(--font);
+  padding: 6px; border: 1.5px solid var(--line); border-radius: 6px;
+  background: #fff; color: var(--ink);
+}
+.photo-type-label { font-size: 12px; color: var(--ink-soft); }
+.photo-remove {
+  min-height: 32px;
+  font: 600 12px var(--font);
+  color: var(--fail); background: var(--fail-bg); border: 1px solid var(--fail);
+  border-radius: 6px; cursor: pointer;
+}
+
+.photo-strip { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.photo-strip-thumb {
+  padding: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
+  cursor: pointer; background: none;
+}
+.photo-strip-thumb img { display: block; width: 84px; height: 84px; object-fit: cover; }
+
+.lightbox-backdrop {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(0, 0, 0, 0.88);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+}
+.lightbox-panel {
+  position: relative;
+  max-width: 100%; max-height: 100%;
+  display: flex; flex-direction: column; align-items: center;
+}
+.lightbox-img { max-width: 92vw; max-height: 78vh; border-radius: 8px; object-fit: contain; }
+.lightbox-caption {
+  margin-top: 10px; color: #fff; font: 500 13px var(--font); text-align: center;
+}
+.lightbox-close {
+  position: absolute; top: -12px; right: -12px;
+  min-width: 36px; min-height: 36px;
+  font: 700 16px var(--font);
+  color: #fff; background: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 50%; cursor: pointer;
+}
+.lightbox-nav {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  min-width: 44px; min-height: 44px;
+  font: 700 26px var(--font);
+  color: #fff; background: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 50%; cursor: pointer;
+}
+.lightbox-prev { left: -8px; }
+.lightbox-next { right: -8px; }
+@media (min-width: 640px) {
+  .lightbox-prev { left: -52px; }
+  .lightbox-next { right: -52px; }
+}

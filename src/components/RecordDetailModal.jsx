@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import ResultReadout from './ResultReadout';
+import PhotoStrip from './PhotoGallery';
 import { exportRecordsToExcel } from '../lib/exportExcel';
 import { fmt } from '../lib/format';
 import { crossCheckDiff } from '../lib/calculations';
@@ -128,6 +129,7 @@ export default function RecordDetailModal({ row, group, tolCrossCheckM, tolPosit
             <button className="link" onClick={onClose}>Close · ปิด</button>
           </div>
           <ResultReadout results={primary} p1El={primary.p1el} tol={tolPositionM != null ? { positionM: tolPositionM } : undefined} stage={primary.pile_stage} note={primary.note} />
+          <PhotoStrip recordId={primary.id} />
           <OtherSurveys members={stageGroup} primary={primary} tol={tolCrossCheckM} canSetPrimary={canSetPrimary} onSetPrimary={onSetPrimary} />
           <button className="btn-secondary" onClick={() => exportRecordsToExcel(columns, [primary])}>
             Export this record · ส่งออกระเบียนนี้
@@ -178,6 +180,7 @@ export default function RecordDetailModal({ row, group, tolCrossCheckM, tolPosit
             <p className="hint">{beforePrimary.surveyor} · {fmtWhen(beforePrimary)}</p>
             <CrossCheckBadge cc={ccBefore} tol={tolCrossCheckM} />
             <ResultReadout results={beforePrimary} p1El={beforePrimary.p1el} tol={tolPositionM != null ? { positionM: tolPositionM } : undefined} stage="before" note={beforePrimary.note} />
+            <PhotoStrip recordId={beforePrimary.id} />
             <OtherSurveys members={beforeGroup} primary={beforePrimary} tol={tolCrossCheckM} canSetPrimary={canSetPrimary} onSetPrimary={onSetPrimary} />
             <button className="btn-secondary" disabled={printing === beforePrimary.id}
               onClick={() => handlePrint(beforePrimary, { asbuiltN: afterPrimary.asbuiltN, asbuiltE: afterPrimary.asbuiltE }, ccBefore)}>
@@ -192,6 +195,7 @@ export default function RecordDetailModal({ row, group, tolCrossCheckM, tolPosit
             <p className="hint">{afterPrimary.surveyor} · {fmtWhen(afterPrimary)}</p>
             <CrossCheckBadge cc={ccAfter} tol={tolCrossCheckM} />
             <ResultReadout results={afterPrimary} p1El={afterPrimary.p1el} tol={tolPositionM != null ? { positionM: tolPositionM } : undefined} stage="after" note={afterPrimary.note} />
+            <PhotoStrip recordId={afterPrimary.id} />
             <OtherSurveys members={afterGroup} primary={afterPrimary} tol={tolCrossCheckM} canSetPrimary={canSetPrimary} onSetPrimary={onSetPrimary} />
             <button className="btn-secondary" disabled={printing === afterPrimary.id}
               onClick={() => handlePrint(afterPrimary, { asbuiltN: beforePrimary.asbuiltN, asbuiltE: beforePrimary.asbuiltE }, ccAfter)}>

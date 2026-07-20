@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { localdb, replaceAll } from '../lib/localdb';
 import { queueRecord, pushOne, isNetworkError } from '../lib/sync';
 import { computeAll, bsCheck, parseIncline, crossCheckDiff } from '../lib/calculations';
+import { compressPhoto, uploadPhoto, deletePhoto, fetchPhotos, photoUrl, PHOTO_TYPES } from '../lib/photos';
 import ResultReadout from '../components/ResultReadout';
 
 const fmt = (v, d = 3) => (v == null || Number.isNaN(v) ? '—' : Number(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }));
@@ -36,6 +37,14 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
   const [mismatch, setMismatch] = useState(null); // { diff, tolM, surveyor, date, resolve }
+
+  // existingPhotos: already-saved photos loaded when editing (id, storage_path,
+  // original_type, photoType, removed). newPhotos: locally captured/chosen,
+  // not yet uploaded (tempId, blob, previewUrl, photoType).
+  const [existingPhotos, setExistingPhotos] = useState([]);
+  const [newPhotos, setNewPhotos] = useState([]);
+  const cameraInputRef = useRef(null);
+  const galleryInputRef = useRef(null);
 
   useEffect(() => {
     (async () => {
@@ -119,18 +128,92 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
     setStage(editRecord.pile_stage ?? '');
     setNote(editRecord.note ?? '');
     setShare(editRecord.is_shared ?? true);
+    (async () => {
+      try {
+        const rows = await fetchPhotos(editRecord.id);
+        setExistingPhotos(rows.map((r) => ({
+          id: r.id, storage_path: r.storage_path,
+          original_type: r.photo_type, photoType: r.photo_type, removed: false,
+        })));
+      } catch (err) {
+        setToast({ type: 'err', msg: err.message });
+      }
+    })();
   }, [editRecord]);
+
+  function clearPhotoState() {
+    newPhotos.forEach((p) => URL.revokeObjectURL(p.previewUrl));
+    setNewPhotos([]);
+    setExistingPhotos([]);
+  }
 
   function resetToNewEntry() {
     setPileId(''); setStnSelect(''); setStnName('');
     setBsId(''); setBsN(''); setBsE('');
     setP1({ ...EMPTY_PT }); setP2({ ...EMPTY_PT }); setP3({ ...EMPTY_PT });
     setSeabed(''); setStage(''); setNote(''); setShare(true);
+    clearPhotoState();
   }
 
   function cancelEdit() {
     resetToNewEntry();
     onCancelEdit?.();
+  }
+
+  const totalPhotoCount = existingPhotos.filter((p) => !p.removed).length + newPhotos.length;
+
+  async function addPhotoFiles(fileList) {
+    const remaining = 6 - totalPhotoCount;
+    if (remaining <= 0) return;
+    const files = Array.from(fileList).slice(0, remaining);
+    for (const file of files) {
+      try {
+        const blob = await compressPhoto(file);
+        setNewPhotos((ps) => [...ps, { tempId: crypto.randomUUID(), blob, previewUrl: URL.createObjectURL(blob), photoType: 'pile' }]);
+      } catch (err) {
+        setToast({ type: 'err', msg: `Photo failed · รูปไม่สำเร็จ: ${err.message}` });
+        setTimeout(() => setToast(null), 4000);
+      }
+    }
+  }
+
+  function removeNewPhoto(tempId) {
+    setNewPhotos((ps) => {
+      const p = ps.find((x) => x.tempId === tempId);
+      if (p) URL.revokeObjectURL(p.previewUrl);
+      return ps.filter((x) => x.tempId !== tempId);
+    });
+  }
+
+  function setNewPhotoType(tempId, photoType) {
+    setNewPhotos((ps) => ps.map((x) => (x.tempId === tempId ? { ...x, photoType } : x)));
+  }
+
+  function removeExistingPhoto(id) {
+    setExistingPhotos((ps) => ps.map((x) => (x.id === id ? { ...x, removed: true } : x)));
+  }
+
+  function setExistingPhotoType(id, photoType) {
+    setExistingPhotos((ps) => ps.map((x) => (x.id === id ? { ...x, photoType } : x)));
+  }
+
+  // Applies the current photo edits against `recordId`: removes deleted
+  // existing photos, updates changed types, uploads new ones. Used for both
+  // new records (existingPhotos is always empty) and edit-mode updates.
+  async function syncPhotoChanges(recordId) {
+    const failures = [];
+    for (const p of existingPhotos) {
+      if (p.removed) {
+        try { await deletePhoto(p); } catch { failures.push(p); }
+      } else if (p.photoType !== p.original_type) {
+        const { error } = await supabase.from('record_photos').update({ photo_type: p.photoType }).eq('id', p.id);
+        if (error) failures.push(p);
+      }
+    }
+    for (const p of newPhotos) {
+      try { await uploadPhoto({ recordId, blob: p.blob, photoType: p.photoType }); } catch { failures.push(p); }
+    }
+    return failures;
   }
 
   const pile = piles.find((p) => p.id === pileId) ?? null;
@@ -180,6 +263,7 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
     setSaving(false);
     setToast({ type: 'ok', msg });
     setP1({ ...EMPTY_PT }); setP2({ ...EMPTY_PT }); setP3({ ...EMPTY_PT }); setSeabed(''); setNote('');
+    clearPhotoState();
     setTimeout(() => setToast(null), 4000);
   }
 
@@ -260,10 +344,16 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
     const { error: delErr } = await supabase.from('survey_points').delete().eq('record_id', editRecord.id);
     if (delErr) { setToast({ type: 'err', msg: delErr.message }); setSaving(false); return; }
     const { error: e2 } = await supabase.from('survey_points').insert(pts.map((pt) => ({ ...pt, record_id: editRecord.id })));
-    setSaving(false);
-    if (e2) { setToast({ type: 'err', msg: e2.message }); return; }
+    if (e2) { setToast({ type: 'err', msg: e2.message }); setSaving(false); return; }
 
-    setToast({ type: 'ok', msg: `Record updated · บันทึกการแก้ไขแล้ว${cc.matchNote ? ' · ' + cc.matchNote : ''}` });
+    const photoFailures = await syncPhotoChanges(editRecord.id);
+    setSaving(false);
+
+    setToast({
+      type: 'ok',
+      msg: `Record updated · บันทึกการแก้ไขแล้ว${cc.matchNote ? ' · ' + cc.matchNote : ''}`
+        + (photoFailures.length ? ` · ⚠ ${photoFailures.length} photo(s) failed · รูปไม่สำเร็จ ${photoFailures.length} รูป` : ''),
+    });
     setTimeout(() => setToast(null), 4000);
     resetToNewEntry();
     onEditSaved?.();
@@ -307,9 +397,14 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
       points: pts,
     };
 
+    // Photos are attached to the record only once it exists — not built for
+    // the offline queue (phase 2), so an offline save leaves photos unattached.
+    const offlineMsg = 'Saved offline · บันทึกออฟไลน์ — will sync · จะซิงค์เมื่อมีสัญญาณ'
+      + (newPhotos.length ? ' · photos not attached (offline) · ไม่แนบรูป (ออฟไลน์)' : '');
+
     if (!navigator.onLine) {
       await queueRecord(item);
-      finishSave('Saved offline · บันทึกออฟไลน์ — will sync · จะซิงค์เมื่อมีสัญญาณ');
+      finishSave(offlineMsg);
       return;
     }
 
@@ -318,7 +413,7 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
     } catch (err) {
       if (isNetworkError(err)) {
         await queueRecord(item);
-        finishSave('Saved offline · บันทึกออฟไลน์ — will sync · จะซิงค์เมื่อมีสัญญาณ');
+        finishSave(offlineMsg);
         return;
       }
       setToast({ type: 'err', msg: err.message });
@@ -330,7 +425,9 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
       setBenchmarks((bms) => [...bms, item.newStation]);
       setStnSelect(item.newStation.id);
     }
-    finishSave(`Pile ${pile.pile_no} saved${cc.share ? ' · shared to team' : ' · private draft'}${item.newStation ? ' · new station created · สร้างหมุดใหม่' : ''} · ${new Date(item.record.measured_time).toLocaleString()}${cc.matchNote ? ' · ' + cc.matchNote : ''}`);
+
+    const photoFailures = newPhotos.length ? await syncPhotoChanges(item.uuid) : [];
+    finishSave(`Pile ${pile.pile_no} saved${cc.share ? ' · shared to team' : ' · private draft'}${item.newStation ? ' · new station created · สร้างหมุดใหม่' : ''} · ${new Date(item.record.measured_time).toLocaleString()}${cc.matchNote ? ' · ' + cc.matchNote : ''}${photoFailures.length ? ` · ⚠ ${photoFailures.length} photo(s) failed · รูปไม่สำเร็จ ${photoFailures.length} รูป` : ''}`);
   }
 
   const inc = pile ? parseIncline(pile.incline) : null;
@@ -451,6 +548,49 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
 
       {/* ---------- readout ---------- */}
       {results && <ResultReadout results={results} p1El={p1.el} tol={tol} inc={inc} stage={stage} note={note} />}
+
+      {/* ---------- photos ---------- */}
+      <section className="card">
+        <h2 className="card-title">Photos · รูปถ่าย <em>{totalPhotoCount}/6</em></h2>
+        {canSave && (
+          <div className="photo-add-row">
+            <button type="button" className="btn-secondary" disabled={totalPhotoCount >= 6}
+              onClick={() => cameraInputRef.current?.click()}>📷 Take photo · ถ่ายรูป</button>
+            <button type="button" className="btn-secondary" disabled={totalPhotoCount >= 6}
+              onClick={() => galleryInputRef.current?.click()}>🖼 Choose · เลือกรูป</button>
+            <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" hidden
+              onChange={(e) => { addPhotoFiles(e.target.files); e.target.value = ''; }} />
+            <input ref={galleryInputRef} type="file" accept="image/*" multiple hidden
+              onChange={(e) => { addPhotoFiles(e.target.files); e.target.value = ''; }} />
+          </div>
+        )}
+        {totalPhotoCount > 0 && (
+          <div className="photo-thumb-row">
+            {existingPhotos.filter((p) => !p.removed).map((p) => (
+              <div key={p.id} className="photo-thumb">
+                <img src={photoUrl(p.storage_path)} alt="" />
+                {canSave ? (
+                  <select value={p.photoType} onChange={(e) => setExistingPhotoType(p.id, e.target.value)}>
+                    {PHOTO_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                ) : (
+                  <span className="photo-type-label">{PHOTO_TYPES.find((t) => t.value === p.photoType)?.label}</span>
+                )}
+                {canSave && <button type="button" className="photo-remove" onClick={() => removeExistingPhoto(p.id)}>✕</button>}
+              </div>
+            ))}
+            {newPhotos.map((p) => (
+              <div key={p.tempId} className="photo-thumb">
+                <img src={p.previewUrl} alt="" />
+                <select value={p.photoType} onChange={(e) => setNewPhotoType(p.tempId, e.target.value)}>
+                  {PHOTO_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+                <button type="button" className="photo-remove" onClick={() => removeNewPhoto(p.tempId)}>✕</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       {/* ---------- save ---------- */}
       {canSave && (

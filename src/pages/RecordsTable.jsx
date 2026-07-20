@@ -87,6 +87,7 @@ export default function RecordsTable({ session, role, onEdit }) {
   const [pending, setPending] = useState([]);
   const [tolCrossCheckM, setTolCrossCheckM] = useState(0.03);
   const [tolPositionM, setTolPositionM] = useState(0.075);
+  const [photoCounts, setPhotoCounts] = useState({});
   const [frozenKeys, toggleFrozen, resetFrozen] = useFrozenColumns('recordsTable.frozenCols', DEFAULT_FROZEN_KEYS);
 
   useEffect(() => {
@@ -101,6 +102,17 @@ export default function RecordsTable({ session, role, onEdit }) {
         if (r.key === 'tol_cross_check_m' && r.value != null) setTolCrossCheckM(r.value);
         if (r.key === 'tol_position_m' && r.value != null) setTolPositionM(r.value);
       });
+    })();
+  }, []);
+
+  // Lightweight aggregate for the "📷 N" row indicator — just record_id per
+  // photo, counted client-side (record_photos is public-read).
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from('record_photos').select('record_id');
+      const counts = {};
+      (data ?? []).forEach((r) => { counts[r.record_id] = (counts[r.record_id] ?? 0) + 1; });
+      setPhotoCounts(counts);
     })();
   }, []);
 
@@ -280,6 +292,7 @@ export default function RecordsTable({ session, role, onEdit }) {
       render: (_v, row) => (
         <>
           {row._pending && <span className="pending-badge">⏳ pending sync · รอซิงค์</span>}
+          {photoCounts[row.id] > 0 && <span className="photo-badge">📷 {photoCounts[row.id]}</span>}
           <button className="link" onClick={() => setSelectedRow(row)}>View</button>
         </>
       ),
