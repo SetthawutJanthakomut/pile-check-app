@@ -9,6 +9,7 @@ import { effectivePrimary } from '../lib/primary';
 import { crossCheckDiff, posCheckFor } from '../lib/calculations';
 
 const STAGE_SHORT = { before: 'ก่อนตอก', after: 'หลังตอก' };
+const UNASSIGNED = '__unassigned__';
 
 function fmtDateTime(measuredAt, measuredTime) {
   const t = measuredTime ? new Date(measuredTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '';
@@ -83,6 +84,7 @@ export default function RecordsTable({ session, role, onEdit }) {
   const [toast, setToast] = useState(null);
   const [filterPile, setFilterPile] = useState('');
   const [mineOnly, setMineOnly] = useState(false);
+  const [zoneFilters, setZoneFilters] = useState(() => new Set());
   const [selectedRow, setSelectedRow] = useState(null);
   const [pending, setPending] = useState([]);
   const [tolCrossCheckM, setTolCrossCheckM] = useState(0.03);
@@ -119,7 +121,7 @@ export default function RecordsTable({ session, role, onEdit }) {
   const fetchRecords = useCallback(() => {
     let q = supabase
       .from('asbuilt_records')
-      .select('*, piles(pile_no), station:benchmarks!station_id(name), survey_points(point_no, northing, easting, elevation)')
+      .select('*, piles(pile_no, zone), station:benchmarks!station_id(name), survey_points(point_no, northing, easting, elevation)')
       .order('measured_at', { ascending: false });
     if (mineOnly && session) q = q.eq('created_by', session.user.id);
     return q;
@@ -144,6 +146,23 @@ export default function RecordsTable({ session, role, onEdit }) {
   const pendingFiltered = useMemo(() => pending.filter((item) =>
     !filterPile || (item.pileNo || '').toLowerCase().includes(filterPile.toLowerCase())), [pending, filterPile]);
 
+  const zones = useMemo(() => {
+    const set = new Set();
+    let hasUnassigned = false;
+    records.forEach((r) => { const z = r.piles?.zone; if (z) set.add(z); else hasUnassigned = true; });
+    const sorted = [...set].sort();
+    if (hasUnassigned) sorted.push(UNASSIGNED);
+    return sorted;
+  }, [records]);
+
+  function toggleZoneFilter(z) {
+    setZoneFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(z)) next.delete(z); else next.add(z);
+      return next;
+    });
+  }
+
   const rows = useMemo(() => {
     const serverRows = filtered.map((r, i) => {
       const pts = {};
@@ -153,6 +172,7 @@ export default function RecordsTable({ session, role, onEdit }) {
         id: r.id,
         no: i + 1,
         pile_no: r.piles?.pile_no ?? '—',
+        zone: r.piles?.zone,
         measured_at: r.measured_at,
         measured_time: r.measured_time,
         surveyor: r.surveyor,
@@ -213,8 +233,9 @@ export default function RecordsTable({ session, role, onEdit }) {
       const bt = b.measured_time ? new Date(b.measured_time).getTime() : -Infinity;
       return bt - at;
     });
-    return combined;
-  }, [filtered, pendingFiltered, tolPositionM]);
+    if (zoneFilters.size === 0) return combined;
+    return combined.filter((r) => zoneFilters.has(r.zone || UNASSIGNED));
+  }, [filtered, pendingFiltered, tolPositionM, zoneFilters]);
 
   // Group flattened rows by pile_no + pile_stage so the detail modal can show
   // before+after side by side, and multiple same-pile+stage surveys can be
@@ -344,6 +365,21 @@ export default function RecordsTable({ session, role, onEdit }) {
           onReset={resetFrozen}
         />
       </div>
+      {zones.length > 0 && (
+        <div className="zone-filter">
+          <span className="zone-filter-label">Filter by Zone · กรองตามโซน</span>
+          {zones.map((z) => (
+            <button
+              key={z}
+              type="button"
+              className={`zone-pill${zoneFilters.has(z) ? ' active' : ''}`}
+              onClick={() => toggleZoneFilter(z)}
+            >
+              {z === UNASSIGNED ? '(Unassigned) · ไม่ระบุโซน' : z}
+            </button>
+          ))}
+        </div>
+      )}
       {loading ? <p className="hint">Loading… · กำลังโหลด</p> : (
         <DataTable
           columns={viewColumns}

@@ -342,6 +342,17 @@ body {
 }
 .share-toggle { display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .share-toggle input { width: 20px; height: 20px; accent-color: var(--accent); }
+
+/* ---------- zone filter ---------- */
+.zone-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 12px; }
+.zone-filter-label { font: 600 12px var(--font); color: var(--ink-soft); margin-right: 2px; }
+.zone-pill {
+  font: 600 12px var(--font); padding: 5px 12px; border-radius: 999px;
+  border: 1.5px solid var(--line); background: var(--card); color: var(--ink);
+  cursor: pointer;
+}
+.zone-pill:hover { border-color: var(--accent); }
+.zone-pill.active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .btn-save {
   margin-left: auto;
   min-height: 52px;

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import DataTable from '../components/DataTable';
 import { num } from '../lib/format';
@@ -6,6 +6,7 @@ import { CSV_COLUMNS, parseCsv, exportPilesToCsv } from '../lib/pilesCsv';
 
 const COLUMNS = [
   { key: 'pile_no', label: 'Pile No. · เลขเข็ม', type: 'text', width: 100 },
+  { key: 'zone', label: 'Zone · โซน', type: 'combo', width: 110 },
   { key: 'pile_size', label: 'Size · ขนาด', type: 'text', width: 110 },
   { key: 'dia_mm', label: 'Dia (mm) · เส้นผ่านศูนย์กลาง', type: 'number', decimals: 1, width: 90 },
   { key: 'pile_top_level', label: 'Top Level · ระดับหัวเข็ม', type: 'number' },
@@ -37,6 +38,11 @@ export default function PilesTable({ role }) {
       setLoading(false);
     })();
   }, []);
+
+  const columns = useMemo(() => {
+    const zones = [...new Set(rows.map((r) => r.zone).filter(Boolean))].sort();
+    return COLUMNS.map((c) => (c.key === 'zone' ? { ...c, options: zones } : c));
+  }, [rows]);
 
   function flashToast(t) {
     setToast(t);
@@ -138,7 +144,7 @@ export default function PilesTable({ role }) {
       </div>
       {loading ? <p className="hint">Loading… · กำลังโหลด</p> : (
         <DataTable
-          columns={COLUMNS}
+          columns={columns}
           rows={rows}
           onSave={handleSave}
           readOnly={!canWrite}

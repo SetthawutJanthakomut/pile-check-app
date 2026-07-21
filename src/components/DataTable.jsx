@@ -64,8 +64,10 @@ export function FreezeColumnsMenu({ candidates, frozenKeys, onToggle, onReset })
 /**
  * Reusable spreadsheet-style grid.
  *
- * columns: [{ key, label, type: 'text'|'number'|'readonly'|'boolean'|'select',
+ * columns: [{ key, label, type: 'text'|'number'|'readonly'|'boolean'|'select'|'combo',
  *             width, decimals, options, verdict, render(value,row) }]
+ * 'combo' is a free-text input with a <datalist> of `options` — the user can either
+ * type a new value or pick an existing one.
  * rows: array of plain objects, each with an `id`.
  * onSave(rowId, key, value): async — persists a single field. Throw to trigger revert + toast.
  * renderRowActions(row): optional — trailing actions cell (e.g. delete button).
@@ -279,17 +281,25 @@ export default function DataTable({ columns, rows, onSave, renderRowActions, act
                     onClick={() => !isEditing && startEdit(row, col)}
                   >
                     {isEditing ? (
-                      <input
-                        autoFocus
-                        className="dt-input"
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        onBlur={() => commitEdit(row, col)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') e.currentTarget.blur();
-                          if (e.key === 'Escape') cancelEdit();
-                        }}
-                      />
+                      <>
+                        <input
+                          autoFocus
+                          className="dt-input"
+                          list={col.type === 'combo' ? `dt-datalist-${col.key}` : undefined}
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          onBlur={() => commitEdit(row, col)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') e.currentTarget.blur();
+                            if (e.key === 'Escape') cancelEdit();
+                          }}
+                        />
+                        {col.type === 'combo' && (
+                          <datalist id={`dt-datalist-${col.key}`}>
+                            {(col.options || []).map((o) => <option key={o} value={o} />)}
+                          </datalist>
+                        )}
+                      </>
                     ) : (
                       <>
                         {isNum ? fmt(value, col.decimals ?? 3) : (value ?? '—')}

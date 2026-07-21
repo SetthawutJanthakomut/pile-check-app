@@ -6,6 +6,7 @@ import { fmt } from '../lib/format';
 import RecordDetailModal from '../components/RecordDetailModal';
 import { COLUMNS } from './RecordsTable';
 
+const UNASSIGNED = '__unassigned__';
 const MIN_K = 0.4;
 const MAX_K = 8;
 const clampK = (k) => Math.min(MAX_K, Math.max(MIN_K, k));
@@ -128,6 +129,7 @@ export default function PlanView() {
   const gestureRef = useRef({ pointers: new Map(), mode: null });
 
   const [activeFilters, setActiveFilters] = useState(() => new Set());
+  const [zoneFilters, setZoneFilters] = useState(() => new Set());
   // Starts collapsed on narrow (mobile) viewports so the panel doesn't
   // cover most of the plan on first load — still user-toggleable either way.
   const [legendOpen, setLegendOpen] = useState(() => (typeof window === 'undefined' ? true : window.innerWidth > 640));
@@ -142,7 +144,7 @@ export default function PlanView() {
     (async () => {
       setLoading(true);
       const [pilesRes, recRes, tolRes] = await Promise.all([
-        supabase.from('piles').select('id, pile_no, coordinate_pn, coordinate_pe, incline').order('pile_no'),
+        supabase.from('piles').select('id, pile_no, coordinate_pn, coordinate_pe, incline, zone').order('pile_no'),
         supabase.from('asbuilt_records')
           .select('*, piles(pile_no), station:benchmarks!station_id(name), survey_points(point_no, northing, easting, elevation)'),
         supabase.from('project_settings').select('key, value').in('key', ['tol_cross_check_m', 'tol_position_m']),
@@ -183,6 +185,20 @@ export default function PlanView() {
       const disagree = crossCheckMax(beforeArr) > tol || crossCheckMax(afterArr) > tol;
       return { pile: p, beforeArr, afterArr, beforePrimary, afterPrimary, status, beforeOver, disagree };
     }), [piles, recordsByPile, tol, tolPositionM]);
+
+  const zones = useMemo(() => {
+    const set = new Set();
+    let hasUnassigned = false;
+    piles.forEach((p) => { if (p.zone) set.add(p.zone); else hasUnassigned = true; });
+    const sorted = [...set].sort();
+    if (hasUnassigned) sorted.push(UNASSIGNED);
+    return sorted;
+  }, [piles]);
+
+  const visiblePileInfo = useMemo(() => {
+    if (zoneFilters.size === 0) return pileInfo;
+    return pileInfo.filter((info) => zoneFilters.has(info.pile.zone || UNASSIGNED));
+  }, [pileInfo, zoneFilters]);
 
   const counts = useMemo(() => {
     const c = { none: 0, beforeOnly: 0, afterOk: 0, afterOver: 0, disagree: 0 };
@@ -378,6 +394,14 @@ export default function PlanView() {
     });
   }
 
+  function toggleZoneFilter(z) {
+    setZoneFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(z)) next.delete(z); else next.add(z);
+      return next;
+    });
+  }
+
   function goToPile(query) {
     const q = query.trim().toLowerCase();
     if (!q || !proj) return;
@@ -434,6 +458,22 @@ export default function PlanView() {
         {searchMsg && <span className="hint">{searchMsg}</span>}
       </div>
 
+      {zones.length > 0 && (
+        <div className="zone-filter">
+          <span className="zone-filter-label">Filter by Zone · กรองตามโซน</span>
+          {zones.map((z) => (
+            <button
+              key={z}
+              type="button"
+              className={`zone-pill${zoneFilters.has(z) ? ' active' : ''}`}
+              onClick={() => toggleZoneFilter(z)}
+            >
+              {z === UNASSIGNED ? '(Unassigned) · ไม่ระบุโซน' : z}
+            </button>
+          ))}
+        </div>
+      )}
+
       {loading ? (
         <p className="hint">Loading… · กำลังโหลด</p>
       ) : !pileInfo.length ? (
@@ -461,7 +501,7 @@ export default function PlanView() {
                     const b = proj.toXY(bbox.maxE, n);
                     return <line key={`h${n}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="var(--line)" strokeWidth={1} vectorEffect="non-scaling-stroke" opacity={0.7} />;
                   })}
-                  {pileInfo.map((info) => (
+                  {visiblePileInfo.map((info) => (
                     <PileMarker
                       key={info.pile.id}
                       info={info}

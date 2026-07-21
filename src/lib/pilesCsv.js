@@ -2,6 +2,7 @@
 // so the two features can never drift apart on header names or order.
 export const CSV_COLUMNS = [
   'pile_no',
+  'zone',
   'dia_mm',
   'pile_top_level',
   'sea_bed_level',
