@@ -29,12 +29,17 @@ export async function compressPhoto(file) {
 }
 
 // Uploads an already-compressed blob and inserts its record_photos row.
-export async function uploadPhoto({ recordId, blob, photoType }) {
-  const path = `${recordId}/${crypto.randomUUID()}.jpg`;
-  const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: 'image/jpeg' });
+// `photoId`, when passed (offline sync retries), becomes both the storage
+// object name and the record_photos row id, and the writes become upserts —
+// so re-running this after a partial failure overwrites the same rows
+// instead of duplicating them.
+export async function uploadPhoto({ recordId, blob, photoType, photoId }) {
+  const id = photoId ?? crypto.randomUUID();
+  const path = `${recordId}/${id}.jpg`;
+  const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: 'image/jpeg', upsert: true });
   if (upErr) throw upErr;
   const { data, error } = await supabase.from('record_photos')
-    .insert({ record_id: recordId, storage_path: path, photo_type: photoType })
+    .upsert({ id, record_id: recordId, storage_path: path, photo_type: photoType })
     .select().single();
   if (error) throw error;
   return data;

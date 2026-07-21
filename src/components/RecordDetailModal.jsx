@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import ResultReadout from './ResultReadout';
 import PhotoStrip from './PhotoGallery';
 import { exportRecordsToExcel } from '../lib/exportExcel';
 import { fmt } from '../lib/format';
 import { crossCheckDiff } from '../lib/calculations';
 import { effectivePrimary } from '../lib/primary';
+import { fetchPhotos } from '../lib/photos';
 import { fetchReportInputs } from '../reports/fetchReportData';
 import { printPileReport } from '../reports/printPileReport';
 import { savePileReportImage } from '../reports/savePileReportImage';
@@ -82,12 +83,13 @@ export default function RecordDetailModal({ row, group, tolCrossCheckM, tolPosit
   const [saving, setSaving] = useState(null);
   const [saveError, setSaveError] = useState(null);
 
-  async function handlePrint(recordRow, siblingAsbuilt, crossCheck) {
+  async function handlePrint(recordRow, siblingAsbuilt, crossCheck, includePhotos) {
     setPrinting(recordRow.id);
     setPrintError(null);
     try {
       const { record, pile, station, backsight, tol } = await fetchReportInputs(recordRow.id);
-      printPileReport({ record, pile, station, backsight, tol, siblingAsbuilt, crossCheck });
+      const photos = includePhotos ? await fetchPhotos(recordRow.id) : [];
+      printPileReport({ record, pile, station, backsight, tol, siblingAsbuilt, crossCheck, photos });
     } catch (err) {
       setPrintError(err.message);
     } finally {
@@ -112,6 +114,28 @@ export default function RecordDetailModal({ row, group, tolCrossCheckM, tolPosit
   const afterGroup = group?.after || [];
   const both = beforeGroup.length > 0 && afterGroup.length > 0;
 
+  // Photo counts for the "Attach photos" checkboxes below — computed for
+  // whichever primary record(s) this modal will render, so the checkbox can
+  // be disabled up front for records with no photos. `_pending` (still-queued,
+  // offline) records aren't on the server yet, so this correctly comes back 0.
+  const singlePrimaryId = !both ? (effectivePrimary(group?.[row.pile_stage] || [row]) || row).id : null;
+  const beforePrimaryId = both && beforeGroup.length ? effectivePrimary(beforeGroup)?.id : null;
+  const afterPrimaryId = both && afterGroup.length ? effectivePrimary(afterGroup)?.id : null;
+  const [photoCounts, setPhotoCounts] = useState({});
+  const [attachPhotos, setAttachPhotos] = useState({});
+
+  useEffect(() => {
+    const ids = [singlePrimaryId, beforePrimaryId, afterPrimaryId].filter(Boolean);
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(ids.map(async (id) => {
+        try { return [id, (await fetchPhotos(id)).length]; } catch { return [id, 0]; }
+      }));
+      if (!cancelled) setPhotoCounts(Object.fromEntries(entries));
+    })();
+    return () => { cancelled = true; };
+  }, [singlePrimaryId, beforePrimaryId, afterPrimaryId]);
+
   if (!both) {
     const stageGroup = group?.[row.pile_stage] || [row];
     const primary = effectivePrimary(stageGroup) || row;
@@ -129,12 +153,21 @@ export default function RecordDetailModal({ row, group, tolCrossCheckM, tolPosit
             <button className="link" onClick={onClose}>Close · ปิด</button>
           </div>
           <ResultReadout results={primary} p1El={primary.p1el} tol={tolPositionM != null ? { positionM: tolPositionM } : undefined} stage={primary.pile_stage} note={primary.note} />
-          <PhotoStrip recordId={primary.id} />
+          <PhotoStrip recordId={primary.id} pending={primary._pending} />
           <OtherSurveys members={stageGroup} primary={primary} tol={tolCrossCheckM} canSetPrimary={canSetPrimary} onSetPrimary={onSetPrimary} />
           <button className="btn-secondary" onClick={() => exportRecordsToExcel(columns, [primary])}>
             Export this record · ส่งออกระเบียนนี้
           </button>
-          <button className="btn-secondary" disabled={printing === primary.id} onClick={() => handlePrint(primary, null, cc)}>
+          <label className="share-toggle">
+            <input
+              type="checkbox"
+              checked={!!attachPhotos[primary.id]}
+              disabled={!photoCounts[primary.id]}
+              onChange={(e) => setAttachPhotos((m) => ({ ...m, [primary.id]: e.target.checked }))}
+            />
+            <span>Attach photos (page 2) · แนบรูป (หน้า 2)</span>
+          </label>
+          <button className="btn-secondary" disabled={printing === primary.id} onClick={() => handlePrint(primary, null, cc, attachPhotos[primary.id])}>
             {printing === primary.id ? 'Preparing… · กำลังเตรียม' : 'PDF report · รายงาน PDF'}
           </button>
           <button className="btn-secondary" disabled={saving === primary.id} onClick={() => handleSaveImage(primary, null, cc)}>
@@ -180,10 +213,19 @@ export default function RecordDetailModal({ row, group, tolCrossCheckM, tolPosit
             <p className="hint">{beforePrimary.surveyor} · {fmtWhen(beforePrimary)}</p>
             <CrossCheckBadge cc={ccBefore} tol={tolCrossCheckM} />
             <ResultReadout results={beforePrimary} p1El={beforePrimary.p1el} tol={tolPositionM != null ? { positionM: tolPositionM } : undefined} stage="before" note={beforePrimary.note} />
-            <PhotoStrip recordId={beforePrimary.id} />
+            <PhotoStrip recordId={beforePrimary.id} pending={beforePrimary._pending} />
             <OtherSurveys members={beforeGroup} primary={beforePrimary} tol={tolCrossCheckM} canSetPrimary={canSetPrimary} onSetPrimary={onSetPrimary} />
+            <label className="share-toggle">
+              <input
+                type="checkbox"
+                checked={!!attachPhotos[beforePrimary.id]}
+                disabled={!photoCounts[beforePrimary.id]}
+                onChange={(e) => setAttachPhotos((m) => ({ ...m, [beforePrimary.id]: e.target.checked }))}
+              />
+              <span>Attach photos (page 2) · แนบรูป (หน้า 2)</span>
+            </label>
             <button className="btn-secondary" disabled={printing === beforePrimary.id}
-              onClick={() => handlePrint(beforePrimary, { asbuiltN: afterPrimary.asbuiltN, asbuiltE: afterPrimary.asbuiltE }, ccBefore)}>
+              onClick={() => handlePrint(beforePrimary, { asbuiltN: afterPrimary.asbuiltN, asbuiltE: afterPrimary.asbuiltE }, ccBefore, attachPhotos[beforePrimary.id])}>
               {printing === beforePrimary.id ? 'Preparing… · กำลังเตรียม' : 'PDF report · รายงาน PDF'}
             </button>
             <button className="btn-secondary" disabled={saving === beforePrimary.id}
@@ -195,10 +237,19 @@ export default function RecordDetailModal({ row, group, tolCrossCheckM, tolPosit
             <p className="hint">{afterPrimary.surveyor} · {fmtWhen(afterPrimary)}</p>
             <CrossCheckBadge cc={ccAfter} tol={tolCrossCheckM} />
             <ResultReadout results={afterPrimary} p1El={afterPrimary.p1el} tol={tolPositionM != null ? { positionM: tolPositionM } : undefined} stage="after" note={afterPrimary.note} />
-            <PhotoStrip recordId={afterPrimary.id} />
+            <PhotoStrip recordId={afterPrimary.id} pending={afterPrimary._pending} />
             <OtherSurveys members={afterGroup} primary={afterPrimary} tol={tolCrossCheckM} canSetPrimary={canSetPrimary} onSetPrimary={onSetPrimary} />
+            <label className="share-toggle">
+              <input
+                type="checkbox"
+                checked={!!attachPhotos[afterPrimary.id]}
+                disabled={!photoCounts[afterPrimary.id]}
+                onChange={(e) => setAttachPhotos((m) => ({ ...m, [afterPrimary.id]: e.target.checked }))}
+              />
+              <span>Attach photos (page 2) · แนบรูป (หน้า 2)</span>
+            </label>
             <button className="btn-secondary" disabled={printing === afterPrimary.id}
-              onClick={() => handlePrint(afterPrimary, { asbuiltN: beforePrimary.asbuiltN, asbuiltE: beforePrimary.asbuiltE }, ccAfter)}>
+              onClick={() => handlePrint(afterPrimary, { asbuiltN: beforePrimary.asbuiltN, asbuiltE: beforePrimary.asbuiltE }, ccAfter, attachPhotos[afterPrimary.id])}>
               {printing === afterPrimary.id ? 'Preparing… · กำลังเตรียม' : 'PDF report · รายงาน PDF'}
             </button>
             <button className="btn-secondary" disabled={saving === afterPrimary.id}

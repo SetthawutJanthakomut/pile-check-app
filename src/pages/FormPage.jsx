@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { localdb, replaceAll } from '../lib/localdb';
-import { queueRecord, pushOne, isNetworkError } from '../lib/sync';
+import { queueRecord, queuePhotos, pushOne, isNetworkError } from '../lib/sync';
 import { computeAll, bsCheck, parseIncline, crossCheckDiff } from '../lib/calculations';
 import { compressPhoto, uploadPhoto, deletePhoto, fetchPhotos, photoUrl, PHOTO_TYPES } from '../lib/photos';
 import ResultReadout from '../components/ResultReadout';
@@ -397,14 +397,19 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
       points: pts,
     };
 
-    // Photos are attached to the record only once it exists — not built for
-    // the offline queue (phase 2), so an offline save leaves photos unattached.
+    // Photos queue alongside the record itself (keyed to its client uuid) and
+    // upload once the record has synced — see sync.js's syncPendingPhotos.
     const offlineMsg = 'Saved offline · บันทึกออฟไลน์ — will sync · จะซิงค์เมื่อมีสัญญาณ'
-      + (newPhotos.length ? ' · photos not attached (offline) · ไม่แนบรูป (ออฟไลน์)' : '');
+      + (newPhotos.length ? ` · ${newPhotos.length} photo(s) queued · รูปรอซิงค์ ${newPhotos.length} รูป` : '');
+
+    async function queueOffline() {
+      await queueRecord(item);
+      if (newPhotos.length) await queuePhotos(item.uuid, newPhotos);
+      finishSave(offlineMsg);
+    }
 
     if (!navigator.onLine) {
-      await queueRecord(item);
-      finishSave(offlineMsg);
+      await queueOffline();
       return;
     }
 
@@ -412,8 +417,7 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
       await pushOne(item);
     } catch (err) {
       if (isNetworkError(err)) {
-        await queueRecord(item);
-        finishSave(offlineMsg);
+        await queueOffline();
         return;
       }
       setToast({ type: 'err', msg: err.message });

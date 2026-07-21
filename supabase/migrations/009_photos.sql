@@ -1,6 +1,7 @@
 -- Photo attachments for as-built records.
--- Phase 1 (this migration): online upload only. Offline queueing and PDF
--- photo pages are phase 2 — not built yet.
+-- Phase 1 (this migration): online upload only, plus the record_photos
+-- table and storage bucket used by phase 2's offline queueing and PDF
+-- photo pages (see src/lib/sync.js and src/reports/PhotoReportPage.jsx).
 
 create table record_photos (
   id uuid primary key default gen_random_uuid(),

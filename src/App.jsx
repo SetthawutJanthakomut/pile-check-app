@@ -31,6 +31,7 @@ export default function App() {
   const [showLogin, setShowLogin] = useState(false);
   const [editRecord, setEditRecord] = useState(null);
   const [pendingCount, setPendingCount] = useState(0);
+  const [pendingPhotoCount, setPendingPhotoCount] = useState(0);
   const [syncedToast, setSyncedToast] = useState(false);
   const [showSetPassword, setShowSetPassword] = useState(false);
   const [pwUpdatedToast, setPwUpdatedToast] = useState(false);
@@ -47,6 +48,11 @@ export default function App() {
 
   useEffect(() => {
     const sub = liveQuery(() => localdb.pending_records.count()).subscribe({ next: setPendingCount });
+    return () => sub.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const sub = liveQuery(() => localdb.pending_photos.count()).subscribe({ next: setPendingPhotoCount });
     return () => sub.unsubscribe();
   }, []);
 
@@ -128,8 +134,10 @@ export default function App() {
         <span className="topbar-user">
           {session ? `${session.user.email} · ${role ?? '…'}` : ''}
         </span>
-        {pendingCount > 0 && (
-          <span className="pending-indicator">⏳ {pendingCount} pending · รอซิงค์</span>
+        {(pendingCount > 0 || pendingPhotoCount > 0) && (
+          <span className="pending-indicator">
+            ⏳ {pendingCount} pending{pendingPhotoCount > 0 ? ` · ${pendingPhotoCount} photo(s)` : ''} · รอซิงค์
+          </span>
         )}
         {session ? (
           <button className="link" onClick={() => supabase.auth.signOut()}>Sign out</button>

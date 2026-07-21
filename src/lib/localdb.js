@@ -9,6 +9,9 @@ localdb.version(1).stores({
 localdb.version(2).stores({
   pending_records: 'uuid',
 });
+localdb.version(3).stores({
+  pending_photos: 'uuid, recordUuid',
+});
 
 export async function replaceAll(table, rows) {
   await localdb.transaction('rw', table, async () => {
