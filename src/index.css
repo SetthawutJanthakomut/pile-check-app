@@ -131,6 +131,24 @@ body {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(232, 89, 12, 0.18);
 }
+.search-select { position: relative; }
+.search-select-list {
+  position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; right: 0;
+  max-height: 260px; overflow-y: auto; margin: 0; padding: 4px; list-style: none;
+  background: var(--card); border: 1.5px solid var(--line); border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(15, 29, 43, 0.14);
+}
+.search-select-option {
+  padding: 10px 12px; border-radius: 6px; cursor: pointer;
+  min-height: 44px; display: flex; flex-direction: column; justify-content: center;
+}
+.search-select-option .ss-label { font: 600 15px var(--mono); color: var(--ink); }
+.search-select-option .ss-secondary { font: 400 12px var(--font); color: var(--ink-soft); margin-top: 2px; }
+.search-select-option.active { background: var(--paper); }
+.search-select-option.selected .ss-label { color: var(--accent); }
+.search-select-option.action { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 10px; }
+.search-select-option.action .ss-label { color: var(--accent); font-weight: 700; }
+.search-select-empty { padding: 12px; color: var(--ink-soft); font-size: 13px; text-align: center; }
 .num-wrap { position: relative; }
 .num-wrap input { padding-right: 42px; }
 .sign-toggle {

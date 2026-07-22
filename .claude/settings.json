@@ -28,7 +28,8 @@
       "Bash(rm -f \"C:\\\\Users\\\\setth\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-setth-pile-check-app\\\\809fb235-3e78-45ab-98e5-5e57401922bc\\\\scratchpad\"/*.png)",
       "Bash(node tests/calculations.test.js)",
       "Bash(xargs -I{} echo {})",
-      "Bash(echo \"---exit $?\")"
+      "Bash(echo \"---exit $?\")",
+      "Bash(kill 1776)"
     ]
   }
 }

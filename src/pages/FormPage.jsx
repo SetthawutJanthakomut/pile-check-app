@@ -5,6 +5,7 @@ import { queueRecord, queuePhotos, pushOne, isNetworkError } from '../lib/sync';
 import { computeAll, bsCheck, parseIncline, crossCheckDiff } from '../lib/calculations';
 import { compressPhoto, uploadPhoto, deletePhoto, fetchPhotos, photoUrl, PHOTO_TYPES } from '../lib/photos';
 import ResultReadout from '../components/ResultReadout';
+import SearchSelect from '../components/SearchSelect';
 
 const fmt = (v, d = 3) => (v == null || Number.isNaN(v) ? '—' : Number(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }));
 const num = (s) => (s === '' || s == null ? null : Number(s));
@@ -12,7 +13,9 @@ const flipSign = (s) => (s === '' || s == null ? s : (s.startsWith('-') ? s.slic
 
 const EMPTY_PT = { n: '', e: '', el: '' };
 const NEW_STN = '__new__';
+const ALL_ZONES = '__all__';
 const STAGE_BANNER = { before: 'Before driving · ก่อนตอก', after: 'After driving · หลังตอก' };
+const STN_TRAILING_OPTION = { value: NEW_STN, label: '+ Add new station · เพิ่มจุดใหม่', action: true };
 
 export default function FormPage({ session, role, active, editRecord, onCancelEdit, onEditSaved }) {
   const canSave = role === 'admin' || role === 'recorder';
@@ -22,6 +25,7 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
   const [offline, setOffline] = useState(false);
 
   const [pileId, setPileId] = useState('');
+  const [pileZone, setPileZone] = useState(ALL_ZONES);
   const [stnSelect, setStnSelect] = useState('');
   const [stnName, setStnName] = useState('');
   const [bsId, setBsId] = useState('');
@@ -116,6 +120,7 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
     const pts = {};
     (editRecord.survey_points || []).forEach((p) => { pts[p.point_no] = p; });
     setPileId(editRecord.pile_id ?? '');
+    setPileZone(ALL_ZONES);
     setStnSelect(editRecord.station_id ?? '');
     setStnName('');
     setBsId(editRecord.backsight_id ?? '');
@@ -217,6 +222,19 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
   }
 
   const pile = piles.find((p) => p.id === pileId) ?? null;
+
+  const pileZones = useMemo(() => [...new Set(piles.map((p) => p.zone).filter(Boolean))].sort(), [piles]);
+  const pileOptions = useMemo(() => {
+    const list = pileZone === ALL_ZONES ? piles : piles.filter((p) => p.zone === pileZone);
+    return list.map((p) => ({ value: p.id, label: p.pile_no, secondary: [p.zone, p.incline].filter(Boolean).join(' · ') }));
+  }, [piles, pileZone]);
+  function selectPileZone(z) {
+    setPileZone(z);
+    if (pile && z !== ALL_ZONES && pile.zone !== z) setPileId('');
+  }
+  const stnOptions = useMemo(() => benchmarks.filter((b) => b.type === 'STN').map((b) => ({ value: b.id, label: b.name })), [benchmarks]);
+  const bsOptions = useMemo(() => benchmarks.map((b) => ({ value: b.id, label: b.name })), [benchmarks]);
+
   const stnMatch = stnSelect && stnSelect !== NEW_STN
     ? benchmarks.find((b) => b.id === stnSelect) ?? null
     : null;
@@ -452,13 +470,28 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
       {/* ---------- setup ---------- */}
       <section className="card">
         <h2 className="card-title">Pile &amp; station · เข็มและจุดตั้งกล้อง</h2>
-        <label className="field">
+        <div className="field">
           <span>Pile No.</span>
-          <select value={pileId} onChange={(e) => setPileId(e.target.value)}>
-            <option value="">— select pile —</option>
-            {piles.map((p) => <option key={p.id} value={p.id}>{p.pile_no} · {p.incline}</option>)}
-          </select>
-        </label>
+          {pileZones.length > 0 && (
+            <div className="zone-filter">
+              <span className="zone-filter-label">Zone · โซน</span>
+              <button type="button" className={`zone-pill${pileZone === ALL_ZONES ? ' active' : ''}`} onClick={() => selectPileZone(ALL_ZONES)}>
+                All · ทั้งหมด
+              </button>
+              {pileZones.map((z) => (
+                <button key={z} type="button" className={`zone-pill${pileZone === z ? ' active' : ''}`} onClick={() => selectPileZone(z)}>
+                  {z}
+                </button>
+              ))}
+            </div>
+          )}
+          <SearchSelect
+            options={pileOptions}
+            value={pileId}
+            onChange={setPileId}
+            placeholder="— select pile — · ค้นหาเลขเข็ม"
+          />
+        </div>
         {pile && (
           <div className="design-strip mono">
             <div><span>N</span>{fmt(pile.coordinate_pn)}</div>
@@ -467,14 +500,16 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
             <div><span>Ø</span>{pile.dia_mm} mm</div>
           </div>
         )}
-        <label className="field">
+        <div className="field">
           <span>Station (STN)</span>
-          <select value={stnSelect} onChange={(e) => setStnSelect(e.target.value)}>
-            <option value="">— select station —</option>
-            {benchmarks.filter((b) => b.type === 'STN').map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-            <option value={NEW_STN}>+ Add new station · เพิ่มจุดใหม่</option>
-          </select>
-        </label>
+          <SearchSelect
+            options={stnOptions}
+            value={stnSelect}
+            onChange={setStnSelect}
+            placeholder="— select station — · ค้นหาจุดตั้งกล้อง"
+            trailingOption={STN_TRAILING_OPTION}
+          />
+        </div>
         {stnSelect === NEW_STN && (
           <label className="field">
             <span>New station name · ชื่อจุดใหม่</span>
@@ -516,10 +551,12 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
         <h2 className="card-title">BS check · เช็คหมุดหลัง <em>shoot BS before piles</em></h2>
         <label className="field">
           <span>Backsight</span>
-          <select value={bsId} onChange={(e) => setBsId(e.target.value)}>
-            <option value="">— select BS —</option>
-            {benchmarks.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
+          <SearchSelect
+            options={bsOptions}
+            value={bsId}
+            onChange={setBsId}
+            placeholder="— select BS — · ค้นหาหมุด"
+          />
         </label>
         <div className="grid2">
           <label className="field"><span>Measured N</span>
