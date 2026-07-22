@@ -131,6 +131,8 @@ body {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(232, 89, 12, 0.18);
 }
+.req-star { color: var(--fail); }
+.field .input-error { border-color: var(--fail); box-shadow: 0 0 0 3px rgba(201, 42, 42, 0.15); }
 .search-select { position: relative; }
 .search-select-list {
   position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; right: 0;
@@ -381,7 +383,7 @@ body {
   border: none; border-radius: 10px;
   cursor: pointer;
 }
-.btn-save:disabled { background: var(--line); color: var(--ink-soft); cursor: not-allowed; }
+.btn-save:disabled, .btn-save.btn-save-blocked { background: var(--line); color: var(--ink-soft); cursor: not-allowed; }
 .btn-save:not(:disabled):active { transform: translateY(1px); }
 
 /* ---------- record detail modal ---------- */

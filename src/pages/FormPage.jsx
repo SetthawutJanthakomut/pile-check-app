@@ -39,6 +39,7 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
   const [note, setNote] = useState('');
   const [share, setShare] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [attemptedSave, setAttemptedSave] = useState(false);
   const [toast, setToast] = useState(null);
   const [mismatch, setMismatch] = useState(null); // { diff, tolM, surveyor, date, resolve }
 
@@ -133,6 +134,7 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
     setStage(editRecord.pile_stage ?? '');
     setNote(editRecord.note ?? '');
     setShare(editRecord.is_shared ?? true);
+    setAttemptedSave(false);
     (async () => {
       try {
         const rows = await fetchPhotos(editRecord.id);
@@ -157,6 +159,7 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
     setBsId(''); setBsN(''); setBsE('');
     setP1({ ...EMPTY_PT }); setP2({ ...EMPTY_PT }); setP3({ ...EMPTY_PT });
     setSeabed(''); setStage(''); setNote(''); setShare(true);
+    setAttemptedSave(false);
     clearPhotoState();
   }
 
@@ -245,6 +248,21 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
     ? { n: stnMatch.northing, e: stnMatch.easting }
     : (stnIsNew && bsN !== '' && bsE !== '' ? { n: num(bsN), e: num(bsE) } : null);
   const bs = benchmarks.find((b) => b.id === bsId) ?? null;
+  const stationSelected = !!stnMatch || stnIsNew;
+
+  // Fields required before Save is enabled. Point 3, Note, BS measured N/E,
+  // and Measured seabed are intentionally excluded — they never block save.
+  const missingRequired = useMemo(() => [
+    { empty: !pileId, en: 'Pile No.', th: 'เลขเข็ม' },
+    { empty: !stationSelected, en: 'Station', th: 'จุดตั้งกล้อง' },
+    { empty: !stage, en: 'Stage', th: 'ช่วง' },
+    { empty: !p1.n, en: 'Point 1 Northing', th: 'พิกัด N Point 1' },
+    { empty: !p1.e, en: 'Point 1 Easting', th: 'พิกัด E Point 1' },
+    { empty: !p1.el, en: 'Point 1 Elevation', th: 'ระดับ Point 1' },
+    { empty: !p2.n, en: 'Point 2 Northing', th: 'พิกัด N Point 2' },
+    { empty: !p2.e, en: 'Point 2 Easting', th: 'พิกัด E Point 2' },
+    { empty: !p2.el, en: 'Point 2 Elevation', th: 'ระดับ Point 2' },
+  ].filter((f) => f.empty), [pileId, stationSelected, stage, p1, p2]);
 
   const bsResult = useMemo(() => {
     if (!bs || bsN === '' || bsE === '') return null;
@@ -281,6 +299,7 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
     setSaving(false);
     setToast({ type: 'ok', msg });
     setP1({ ...EMPTY_PT }); setP2({ ...EMPTY_PT }); setP3({ ...EMPTY_PT }); setSeabed(''); setNote('');
+    setAttemptedSave(false);
     clearPhotoState();
     setTimeout(() => setToast(null), 4000);
   }
@@ -314,6 +333,25 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
     const choice = await askMismatch({ diff: worst.diff, tolM: tol.crossCheckM, surveyor: worst.surveyor, date: worst.date });
     if (choice === 'cancel') return { proceed: false };
     return { proceed: true, share: choice === 'shared' };
+  }
+
+  const saveBlocked = missingRequired.length > 0 || !results;
+
+  function attemptSave() {
+    if (saving) return;
+    if (saveBlocked) {
+      setAttemptedSave(true);
+      if (missingRequired.length > 0) {
+        const enList = missingRequired.map((f) => f.en).join(', ');
+        const thList = missingRequired.map((f) => f.th).join(', ');
+        setToast({ type: 'err', msg: `Please complete: ${enList} · กรุณากรอก: ${thList}` });
+      } else {
+        setToast({ type: 'err', msg: 'Cannot compute results yet · ยังคำนวณผลไม่ได้ในขณะนี้' });
+      }
+      setTimeout(() => setToast(null), 5000);
+      return;
+    }
+    save();
   }
 
   async function save() {
@@ -467,11 +505,13 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
           <button className="link" onClick={cancelEdit}>Cancel edit · ยกเลิก</button>
         </section>
       )}
+      <p className="hint"><span className="req-star">*</span> จำเป็น · required</p>
+
       {/* ---------- setup ---------- */}
       <section className="card">
         <h2 className="card-title">Pile &amp; station · เข็มและจุดตั้งกล้อง</h2>
         <div className="field">
-          <span>Pile No.</span>
+          <span>Pile No. <span className="req-star">*</span></span>
           {pileZones.length > 0 && (
             <div className="zone-filter">
               <span className="zone-filter-label">Zone · โซน</span>
@@ -490,6 +530,7 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
             value={pileId}
             onChange={setPileId}
             placeholder="— select pile — · ค้นหาเลขเข็ม"
+            error={attemptedSave && !pileId}
           />
         </div>
         {pile && (
@@ -501,13 +542,14 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
           </div>
         )}
         <div className="field">
-          <span>Station (STN)</span>
+          <span>Station (STN) <span className="req-star">*</span></span>
           <SearchSelect
             options={stnOptions}
             value={stnSelect}
             onChange={setStnSelect}
             placeholder="— select station — · ค้นหาจุดตั้งกล้อง"
             trailingOption={STN_TRAILING_OPTION}
+            error={attemptedSave && !stationSelected}
           />
         </div>
         {stnSelect === NEW_STN && (
@@ -533,8 +575,12 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
       <section className="card">
         <h2 className="card-title">Stage &amp; note · ช่วงและหมายเหตุ</h2>
         <label className="field">
-          <span>Stage · ช่วง</span>
-          <select value={stage} onChange={(e) => setStage(e.target.value)}>
+          <span>Stage · ช่วง <span className="req-star">*</span></span>
+          <select
+            value={stage}
+            onChange={(e) => setStage(e.target.value)}
+            className={attemptedSave && !stage ? 'input-error' : undefined}
+          >
             <option value="">— select stage —</option>
             <option value="before">Before driving · ก่อนตอก</option>
             <option value="after">After driving · หลังตอก</option>
@@ -572,9 +618,9 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
       </section>
 
       {/* ---------- points ---------- */}
-      <PointCard title="Point 1 · Top จุดสูงสุด" pt={p1} set={setP1} />
+      <PointCard title="Point 1 · Top จุดสูงสุด" pt={p1} set={setP1} attemptedSave={attemptedSave} />
       <PointCard title="Point 3 · Mid กลาง (cross-check, optional)" pt={p3} set={setP3} optional />
-      <PointCard title="Point 2 · Bottom จุดต่ำสุด" pt={p2} set={setP2} />
+      <PointCard title="Point 2 · Bottom จุดต่ำสุด" pt={p2} set={setP2} attemptedSave={attemptedSave} />
 
       <section className="card">
         <h2 className="card-title">Seabed re-survey · วัด seabed ใหม่ <em>blank = use design</em></h2>
@@ -640,7 +686,11 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
             <input type="checkbox" checked={share} onChange={(e) => setShare(e.target.checked)} />
             <span>Share to team · แชร์ให้ทีม</span>
           </label>
-          <button className="btn-save" disabled={!results || saving} onClick={save}>
+          <button
+            className={`btn-save${saveBlocked ? ' btn-save-blocked' : ''}`}
+            disabled={saving}
+            onClick={attemptSave}
+          >
             {saving ? 'Saving…' : (editRecord ? 'Update record · บันทึกการแก้ไข' : 'Save record')}
           </button>
         </div>
@@ -674,17 +724,18 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
   );
 }
 
-function PointCard({ title, pt, set, optional = false }) {
+function PointCard({ title, pt, set, optional = false, attemptedSave = false }) {
+  const showError = (v) => (!optional && attemptedSave && !v ? 'input-error' : undefined);
   return (
     <section className="card">
       <h2 className="card-title">{title}</h2>
       <div className="grid3">
-        <label className="field"><span>Northing</span>
-          <input inputMode="decimal" value={pt.n} onChange={(e) => set({ ...pt, n: e.target.value })} placeholder="0.0000" /></label>
-        <label className="field"><span>Easting</span>
-          <input inputMode="decimal" value={pt.e} onChange={(e) => set({ ...pt, e: e.target.value })} placeholder="0.0000" /></label>
-        <label className="field"><span>Elev.</span>
-          <input inputMode="decimal" value={pt.el} onChange={(e) => set({ ...pt, el: e.target.value })} placeholder="0.000" /></label>
+        <label className="field"><span>Northing{!optional && <span className="req-star"> *</span>}</span>
+          <input inputMode="decimal" className={showError(pt.n)} value={pt.n} onChange={(e) => set({ ...pt, n: e.target.value })} placeholder="0.0000" /></label>
+        <label className="field"><span>Easting{!optional && <span className="req-star"> *</span>}</span>
+          <input inputMode="decimal" className={showError(pt.e)} value={pt.e} onChange={(e) => set({ ...pt, e: e.target.value })} placeholder="0.0000" /></label>
+        <label className="field"><span>Elev.{!optional && <span className="req-star"> *</span>}</span>
+          <input inputMode="decimal" className={showError(pt.el)} value={pt.el} onChange={(e) => set({ ...pt, el: e.target.value })} placeholder="0.000" /></label>
       </div>
       {optional && <p className="hint">เว้นว่างได้ / leave blank to skip cross-check</p>}
     </section>

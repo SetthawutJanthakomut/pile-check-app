@@ -11,6 +11,7 @@ export default function SearchSelect({
   placeholder = 'Search…',
   trailingOption = null,
   emptyText = 'No matches · ไม่พบ',
+  error = false,
 }) {
   const [query, setQuery] = useState(null); // null = show selected label; string = actively searching
   const [open, setOpen] = useState(false);
@@ -91,6 +92,7 @@ export default function SearchSelect({
       <input
         ref={inputRef}
         type="text"
+        className={error ? 'input-error' : undefined}
         value={displayText}
         onFocus={handleFocus}
         onChange={handleChange}
