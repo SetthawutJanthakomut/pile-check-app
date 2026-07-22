@@ -21,6 +21,9 @@ const COLUMNS = [
   { key: 'note', label: 'Note · หมายเหตุ', type: 'text', width: 160 },
 ];
 
+const UNASSIGNED = '__unassigned__';
+const ALL_ZONES = '__all__';
+
 export default function PilesTable({ role }) {
   const canWrite = role === 'admin';
   const [rows, setRows] = useState([]);
@@ -28,6 +31,7 @@ export default function PilesTable({ role }) {
   const [toast, setToast] = useState(null);
   const [importMsg, setImportMsg] = useState('');
   const [importing, setImporting] = useState(false);
+  const [selectedZone, setSelectedZone] = useState(ALL_ZONES);
   const fileRef = useRef(null);
 
   useEffect(() => {
@@ -40,9 +44,23 @@ export default function PilesTable({ role }) {
   }, []);
 
   const columns = useMemo(() => {
-    const zones = [...new Set(rows.map((r) => r.zone).filter(Boolean))].sort();
-    return COLUMNS.map((c) => (c.key === 'zone' ? { ...c, options: zones } : c));
+    const zoneOptions = [...new Set(rows.map((r) => r.zone).filter(Boolean))].sort();
+    return COLUMNS.map((c) => (c.key === 'zone' ? { ...c, options: zoneOptions } : c));
   }, [rows]);
+
+  const zones = useMemo(() => {
+    const set = new Set();
+    let hasUnassigned = false;
+    rows.forEach((r) => { if (r.zone) set.add(r.zone); else hasUnassigned = true; });
+    const sorted = [...set].sort();
+    if (hasUnassigned) sorted.push(UNASSIGNED);
+    return sorted;
+  }, [rows]);
+
+  const filteredRows = useMemo(() => {
+    if (selectedZone === ALL_ZONES) return rows;
+    return rows.filter((r) => (r.zone || UNASSIGNED) === selectedZone);
+  }, [rows, selectedZone]);
 
   function flashToast(t) {
     setToast(t);
@@ -137,15 +155,37 @@ export default function PilesTable({ role }) {
           </button>
         )}
         {canWrite && <input ref={fileRef} type="file" accept=".csv" hidden onChange={handleImport} />}
-        <button className="btn-secondary" disabled={!rows.length} onClick={() => exportPilesToCsv(rows)}>
+        <button className="btn-secondary" disabled={!filteredRows.length} onClick={() => exportPilesToCsv(filteredRows)}>
           Export CSV · ส่งออก CSV
         </button>
         {importMsg && <div className="import-msg">{importMsg}</div>}
       </div>
+      {zones.length > 0 && (
+        <div className="zone-filter">
+          <span className="zone-filter-label">Zone · โซน</span>
+          <button
+            type="button"
+            className={`zone-pill${selectedZone === ALL_ZONES ? ' active' : ''}`}
+            onClick={() => setSelectedZone(ALL_ZONES)}
+          >
+            All · ทั้งหมด
+          </button>
+          {zones.map((z) => (
+            <button
+              key={z}
+              type="button"
+              className={`zone-pill${selectedZone === z ? ' active' : ''}`}
+              onClick={() => setSelectedZone(z)}
+            >
+              {z === UNASSIGNED ? '— · ไม่ระบุ' : z}
+            </button>
+          ))}
+        </div>
+      )}
       {loading ? <p className="hint">Loading… · กำลังโหลด</p> : (
         <DataTable
           columns={columns}
-          rows={rows}
+          rows={filteredRows}
           onSave={handleSave}
           readOnly={!canWrite}
           actionsLabel={canWrite ? 'Delete · ลบ' : undefined}

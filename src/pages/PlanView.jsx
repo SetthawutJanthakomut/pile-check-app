@@ -126,10 +126,13 @@ export default function PlanView() {
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [cam, setCam] = useState({ x: 0, y: 0, k: 1 });
   const initedRef = useRef(false);
+  const lastZoneRef = useRef(undefined);
+  const zoneInitedRef = useRef(false);
+  const pendingFocusRef = useRef(null);
   const gestureRef = useRef({ pointers: new Map(), mode: null });
 
   const [activeFilters, setActiveFilters] = useState(() => new Set());
-  const [zoneFilters, setZoneFilters] = useState(() => new Set());
+  const [selectedZone, setSelectedZone] = useState(null);
   // Starts collapsed on narrow (mobile) viewports so the panel doesn't
   // cover most of the plan on first load — still user-toggleable either way.
   const [legendOpen, setLegendOpen] = useState(() => (typeof window === 'undefined' ? true : window.innerWidth > 640));
@@ -195,24 +198,35 @@ export default function PlanView() {
     return sorted;
   }, [piles]);
 
+  // Defaults the view to the first zone (not an all-zones overview) so
+  // distant zones don't collapse into overlapping blobs on first load.
+  useEffect(() => {
+    if (!zoneInitedRef.current && zones.length > 0) {
+      setSelectedZone(zones[0]);
+      zoneInitedRef.current = true;
+    }
+  }, [zones]);
+
   const visiblePileInfo = useMemo(() => {
-    if (zoneFilters.size === 0) return pileInfo;
-    return pileInfo.filter((info) => zoneFilters.has(info.pile.zone || UNASSIGNED));
-  }, [pileInfo, zoneFilters]);
+    if (!selectedZone || zones.length === 0) return pileInfo;
+    return pileInfo.filter((info) => (info.pile.zone || UNASSIGNED) === selectedZone);
+  }, [pileInfo, selectedZone, zones.length]);
 
   const counts = useMemo(() => {
     const c = { none: 0, beforeOnly: 0, afterOk: 0, afterOver: 0, disagree: 0 };
-    pileInfo.forEach((info) => {
+    visiblePileInfo.forEach((info) => {
       c[info.status] += 1;
       if (info.disagree) c.disagree += 1;
     });
     return c;
-  }, [pileInfo]);
+  }, [visiblePileInfo]);
 
+  // Fits only the currently visible (zone-filtered) piles, so distant zones
+  // each get their own readable layout instead of sharing one sparse bbox.
   const bbox = useMemo(() => {
-    if (!pileInfo.length) return null;
+    if (!visiblePileInfo.length) return null;
     let minE = Infinity, maxE = -Infinity, minN = Infinity, maxN = -Infinity;
-    pileInfo.forEach(({ pile }) => {
+    visiblePileInfo.forEach(({ pile }) => {
       const e = Number(pile.coordinate_pe), n = Number(pile.coordinate_pn);
       if (e < minE) minE = e;
       if (e > maxE) maxE = e;
@@ -223,7 +237,7 @@ export default function PlanView() {
     const spanN = (maxN - minN) || 1;
     const padE = spanE * 0.08, padN = spanN * 0.08;
     return { minE: minE - padE, maxE: maxE + padE, minN: minN - padN, maxN: maxN + padN };
-  }, [pileInfo]);
+  }, [visiblePileInfo]);
 
   // Auto-fit projection: maps design E/N (metres) to container-pixel space at
   // cam = {x:0, y:0, k:1} — north up, so higher N maps to a smaller screen y.
@@ -243,12 +257,33 @@ export default function PlanView() {
     };
   }, [bbox, size]);
 
+  // Re-fits the camera to identity on first load and whenever the selected
+  // zone changes, so switching zones re-fits instead of keeping a stale
+  // pan/zoom from the previous zone's bbox.
   useEffect(() => {
-    if (proj && !initedRef.current) {
+    if (!proj) return;
+    const zoneChanged = lastZoneRef.current !== undefined && lastZoneRef.current !== selectedZone;
+    if (!initedRef.current || zoneChanged) {
       setCam({ x: 0, y: 0, k: 1 });
       initedRef.current = true;
     }
-  }, [proj]);
+    lastZoneRef.current = selectedZone;
+  }, [proj, selectedZone]);
+
+  // A pending pile search that required a zone switch resumes here once the
+  // new zone's proj is ready, overriding the identity reset above.
+  useEffect(() => {
+    const id = pendingFocusRef.current;
+    if (id == null || !proj) return;
+    pendingFocusRef.current = null;
+    const match = pileInfo.find((pi) => pi.pile.id === id);
+    if (!match) return;
+    const { x, y } = proj.toXY(Number(match.pile.coordinate_pe), Number(match.pile.coordinate_pn));
+    const k = 2.5;
+    setCam({ x: size.w / 2 - x * k, y: size.h / 2 - y * k, k });
+    setPulseId(id);
+    setTimeout(() => setPulseId((cur) => (cur === id ? null : cur)), 2900);
+  }, [proj, pileInfo, size]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -349,18 +384,18 @@ export default function PlanView() {
   }
 
   const baseRadius = useMemo(() => {
-    if (!proj || !pileInfo.length) return 10;
-    const avgSpacingPx0 = Math.sqrt((proj.drawW * proj.drawH) / pileInfo.length);
+    if (!proj || !visiblePileInfo.length) return 10;
+    const avgSpacingPx0 = Math.sqrt((proj.drawW * proj.drawH) / visiblePileInfo.length);
     return Math.min(18, Math.max(10, avgSpacingPx0 * 0.28));
-  }, [proj, pileInfo.length]);
+  }, [proj, visiblePileInfo.length]);
 
   // Labels get crowded when many piles sit close together at the current
   // zoom — hide them below a spacing threshold and reveal on zoom-in.
   const showLabels = useMemo(() => {
-    if (!proj || !pileInfo.length) return true;
-    const avgSpacingPx0 = Math.sqrt((proj.drawW * proj.drawH) / pileInfo.length);
+    if (!proj || !visiblePileInfo.length) return true;
+    const avgSpacingPx0 = Math.sqrt((proj.drawW * proj.drawH) / visiblePileInfo.length);
     return avgSpacingPx0 * cam.k >= 30;
-  }, [proj, pileInfo.length, cam.k]);
+  }, [proj, visiblePileInfo.length, cam.k]);
 
   const grid = useMemo(() => {
     if (!bbox) return null;
@@ -394,21 +429,23 @@ export default function PlanView() {
     });
   }
 
-  function toggleZoneFilter(z) {
-    setZoneFilters((prev) => {
-      const next = new Set(prev);
-      if (next.has(z)) next.delete(z); else next.add(z);
-      return next;
-    });
-  }
-
+  // Searches across all piles regardless of the current zone; if the match
+  // is in a different zone, switches zones first and lets the pending-focus
+  // effect above pan/pulse it once that zone's proj is ready.
   function goToPile(query) {
     const q = query.trim().toLowerCase();
-    if (!q || !proj) return;
+    if (!q) return;
     const match = pileInfo.find((pi) => pi.pile.pile_no.toLowerCase() === q)
       || pileInfo.find((pi) => pi.pile.pile_no.toLowerCase().includes(q));
     if (!match) { setSearchMsg('Not found · ไม่พบ'); return; }
     setSearchMsg('');
+    const zoneOfMatch = match.pile.zone || UNASSIGNED;
+    if (zones.length && selectedZone !== zoneOfMatch) {
+      pendingFocusRef.current = match.pile.id;
+      setSelectedZone(zoneOfMatch);
+      return;
+    }
+    if (!proj) return;
     const { x, y } = proj.toXY(Number(match.pile.coordinate_pe), Number(match.pile.coordinate_pn));
     const k = Math.max(cam.k, 2.5);
     setCam({ x: size.w / 2 - x * k, y: size.h / 2 - y * k, k });
@@ -439,6 +476,12 @@ export default function PlanView() {
     setSelectedPile(null);
   }
 
+  const zoneLabel = !selectedZone
+    ? '—'
+    : selectedZone === UNASSIGNED
+      ? '(Unassigned) · ไม่ระบุโซน'
+      : selectedZone;
+
   return (
     <div className="page-wide plan-page">
       <div className="page-toolbar">
@@ -460,13 +503,13 @@ export default function PlanView() {
 
       {zones.length > 0 && (
         <div className="zone-filter">
-          <span className="zone-filter-label">Filter by Zone · กรองตามโซน</span>
+          <span className="zone-filter-label">Zone · โซน</span>
           {zones.map((z) => (
             <button
               key={z}
               type="button"
-              className={`zone-pill${zoneFilters.has(z) ? ' active' : ''}`}
-              onClick={() => toggleZoneFilter(z)}
+              className={`zone-pill${selectedZone === z ? ' active' : ''}`}
+              onClick={() => setSelectedZone(z)}
             >
               {z === UNASSIGNED ? '(Unassigned) · ไม่ระบุโซน' : z}
             </button>
@@ -533,7 +576,7 @@ export default function PlanView() {
 
           <div className={`plan-legend${legendOpen ? '' : ' collapsed'}`}>
             <button className="plan-legend-toggle" onClick={() => setLegendOpen((o) => !o)}>
-              {legendOpen ? 'Legend ▾ · คำอธิบาย' : 'Legend ▸'}
+              {legendOpen ? `Legend ▾ · คำอธิบาย — ${zoneLabel}` : 'Legend ▸'}
             </button>
             {legendOpen && (
               <ul>
