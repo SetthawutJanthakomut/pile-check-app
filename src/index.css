@@ -510,6 +510,16 @@ body {
 .plan-popover-line { font: 500 12px var(--mono); margin: 3px 0; }
 .plan-popover .btn-secondary { width: 100%; margin-top: 6px; }
 
+.plan-popover-design { margin-top: 6px; border-top: 1px solid var(--line); padding-top: 6px; }
+.plan-popover-design-toggle {
+  background: none; border: none; cursor: pointer; width: 100%; text-align: left;
+  font: 700 12px var(--font); color: var(--ink); padding: 2px 0;
+}
+.plan-popover-design-body { max-height: 160px; overflow-y: auto; margin-top: 4px; }
+.plan-popover-kv { font-size: 11px; padding: 2px 0; }
+.plan-popover-kv span { display: block; color: var(--ink-soft); font-size: 10px; }
+.plan-popover-kv b { font-weight: 600; }
+
 @media (max-width: 640px) {
   .plan-canvas-wrap { height: 60vh; }
   .plan-legend { max-width: 200px; font-size: 11px; }

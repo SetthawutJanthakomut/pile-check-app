@@ -62,6 +62,20 @@ function crossCheckMax(members) {
   return maxDiff;
 }
 
+// Design fields shown in the popover's expandable "Design details" section —
+// labels match the bilingual conventions used in PilesTable/PileReport.
+// batter_bearing_deg is naturally omitted for VERT. piles since it's stored
+// as null for them (see 001_schema.sql), so no separate incline check is needed.
+const DESIGN_FIELDS = [
+  { key: 'dia_mm', label: 'Dia (mm) · เส้นผ่านศูนย์กลาง', decimals: 1 },
+  { key: 'pile_top_level', label: 'Top/Cut-off Level · ระดับหัวเข็ม' },
+  { key: 'pile_toe_level', label: 'Toe/Tip Level · ระดับปลายเข็ม' },
+  { key: 'length_m', label: 'Length (m) · ความยาว', decimals: 2 },
+  { key: 'coating_length_m', label: 'Coating (m) · ความยาวเคลือบ', decimals: 2 },
+  { key: 'batter_bearing_deg', label: 'Batter Az (°) · ทิศเอียง', decimals: 2 },
+  { key: 'sea_bed_level', label: 'Seabed Level · ระดับท้องทะเล' },
+];
+
 const LEGEND_ITEMS = [
   { key: 'none', label: 'ยังไม่วัด · Not surveyed' },
   { key: 'beforeOnly', label: 'ก่อนตอกแล้ว รอหลังตอก · Before only' },
@@ -143,14 +157,19 @@ export default function PlanView({ session, role, onEdit }) {
   const [searchMsg, setSearchMsg] = useState('');
   const [pulseId, setPulseId] = useState(null);
   const [selectedPile, setSelectedPile] = useState(null);
+  const [designOpen, setDesignOpen] = useState(false);
   const [modalGroup, setModalGroup] = useState(null);
+
+  // Collapses the design-details expander whenever a different pile (or no
+  // pile) is selected, so it doesn't stay open across popover instances.
+  useEffect(() => { setDesignOpen(false); }, [selectedPile]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
       const [pilesRes, recRes, tolRes] = await Promise.all([
-        supabase.from('piles').select('id, pile_no, coordinate_pn, coordinate_pe, incline, zone').order('pile_no'),
+        supabase.from('piles').select('id, pile_no, coordinate_pn, coordinate_pe, incline, zone, dia_mm, pile_top_level, pile_toe_level, length_m, coating_length_m, batter_bearing_deg, sea_bed_level, note').order('pile_no'),
         supabase.from('asbuilt_records')
           .select('*, piles(pile_no), station:benchmarks!station_id(name), survey_points(point_no, northing, easting, elevation)'),
         supabase.from('project_settings').select('key, value').in('key', ['tol_cross_check_m', 'tol_position_m']),
@@ -625,7 +644,43 @@ export default function PlanView({ session, role, onEdit }) {
                 <strong>{popoverInfo.pile.pile_no}</strong>
                 <button className="link" onClick={() => setSelectedPile(null)}>✕</button>
               </div>
-              <p className="hint">Incline · ความเอียง: {popoverInfo.pile.incline || '—'}</p>
+              <p className="hint">
+                Zone · โซน: {popoverInfo.pile.zone || '—'} · Incline · ความเอียง: {popoverInfo.pile.incline || '—'}
+              </p>
+              <p className="hint mono">
+                PN {fmt(Number(popoverInfo.pile.coordinate_pn), 3)} / PE {fmt(Number(popoverInfo.pile.coordinate_pe), 3)}
+              </p>
+
+              <div className="plan-popover-design">
+                <button
+                  type="button"
+                  className="plan-popover-design-toggle"
+                  onClick={() => setDesignOpen((o) => !o)}
+                >
+                  {designOpen ? '▾' : '▸'} Design details · ข้อมูลออกแบบ
+                </button>
+                {designOpen && (
+                  <div className="plan-popover-design-body">
+                    {DESIGN_FIELDS.map(({ key, label, decimals }) => {
+                      const v = popoverInfo.pile[key];
+                      if (v == null || v === '') return null;
+                      return (
+                        <div className="plan-popover-kv" key={key}>
+                          <span>{label}</span>
+                          <b className="mono">{fmt(Number(v), decimals ?? 3)}</b>
+                        </div>
+                      );
+                    })}
+                    {popoverInfo.pile.note && (
+                      <div className="plan-popover-kv">
+                        <span>Note · หมายเหตุ</span>
+                        <b>{popoverInfo.pile.note}</b>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <div className="plan-popover-line">{statusLine('ก่อนตอก', popoverInfo.beforePrimary, tolPositionM)}</div>
               <div className="plan-popover-line">{statusLine('หลังตอก', popoverInfo.afterPrimary, tolPositionM)}</div>
               {(popoverInfo.afterPrimary || popoverInfo.beforePrimary) && (
