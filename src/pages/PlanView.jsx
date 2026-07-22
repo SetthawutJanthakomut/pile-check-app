@@ -5,8 +5,10 @@ import { crossCheckDiff, posCheckFor } from '../lib/calculations';
 import { fmt } from '../lib/format';
 import RecordDetailModal from '../components/RecordDetailModal';
 import { COLUMNS } from './RecordsTable';
+import { useRecordActions } from '../lib/recordActions';
 
 const UNASSIGNED = '__unassigned__';
+const STAGE_SHORT = { before: 'ก่อนตอก', after: 'หลังตอก' };
 const MIN_K = 0.4;
 const MAX_K = 8;
 const clampK = (k) => Math.min(MAX_K, Math.max(MIN_K, k));
@@ -115,12 +117,13 @@ function PileMarker({ info, proj, r, showLabel, dim, pulsing, onSelect }) {
   );
 }
 
-export default function PlanView() {
+export default function PlanView({ session, role, onEdit }) {
   const [piles, setPiles] = useState([]);
-  const [recordsByPile, setRecordsByPile] = useState({});
+  const [records, setRecords] = useState([]);
   const [tol, setTol] = useState(0.03);
   const [tolPositionM, setTolPositionM] = useState(0.075);
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState(null);
 
   const containerRef = useRef(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
@@ -158,18 +161,25 @@ export default function PlanView() {
         if (r.key === 'tol_cross_check_m' && r.value != null) setTol(r.value);
         if (r.key === 'tol_position_m' && r.value != null) setTolPositionM(r.value);
       });
-      const grouped = {};
-      (recRes.data ?? []).forEach((r) => {
-        const flat = flattenRecord(r);
-        if (!grouped[flat.pile_no]) grouped[flat.pile_no] = {};
-        if (!grouped[flat.pile_no][flat.pile_stage]) grouped[flat.pile_no][flat.pile_stage] = [];
-        grouped[flat.pile_no][flat.pile_stage].push(flat);
-      });
-      setRecordsByPile(grouped);
+      setRecords(recRes.data ?? []);
       setLoading(false);
     })();
     return () => { cancelled = true; };
   }, []);
+
+  // Raw records grouped+flattened for display — same shape RecordsTable
+  // derives, kept as a memo (not fetch-time state) so the shared
+  // useRecordActions delete handler's optimistic filter re-derives it.
+  const recordsByPile = useMemo(() => {
+    const grouped = {};
+    records.forEach((r) => {
+      const flat = flattenRecord(r);
+      if (!grouped[flat.pile_no]) grouped[flat.pile_no] = {};
+      if (!grouped[flat.pile_no][flat.pile_stage]) grouped[flat.pile_no][flat.pile_stage] = [];
+      grouped[flat.pile_no][flat.pile_stage].push(flat);
+    });
+    return grouped;
+  }, [records]);
 
   // One entry per plottable pile (has finite design coordinates), with its
   // derived survey status — after wins over before, disagree is orthogonal.
@@ -476,6 +486,21 @@ export default function PlanView() {
     setSelectedPile(null);
   }
 
+  const { handleEdit, handleDelete } = useRecordActions({ records, setRecords, onEdit, setToast, stageLabels: STAGE_SHORT });
+
+  // Same wrappers RecordsTable uses around the shared edit/delete handlers —
+  // close the Plan modal too, since it's not visible from the table's callers.
+  function handleModalEdit(id) {
+    handleEdit(id);
+    setModalGroup(null);
+  }
+
+  async function handleModalDelete(deletedRow) {
+    const ok = await handleDelete(deletedRow);
+    if (!ok) return;
+    setModalGroup(null);
+  }
+
   const zoneLabel = !selectedZone
     ? '—'
     : selectedZone === UNASSIGNED
@@ -622,9 +647,14 @@ export default function PlanView() {
           columns={COLUMNS}
           canSetPrimary={false}
           onSetPrimary={() => {}}
+          session={session}
+          role={role}
+          onEditRecord={handleModalEdit}
+          onDeleteRecord={handleModalDelete}
           onClose={() => setModalGroup(null)}
         />
       )}
+      {toast && <div className={`toast ${toast.type}`}>{toast.msg}</div>}
     </div>
   );
 }

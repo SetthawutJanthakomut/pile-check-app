@@ -386,6 +386,8 @@ body {
   gap: 12px; margin-bottom: 12px;
 }
 .modal-header h2 { margin: 0 0 2px; font-size: 18px; }
+.modal-header-actions { display: flex; align-items: center; gap: 4px; }
+.card-actions { display: flex; gap: 4px; margin-bottom: 4px; }
 .modal-panel .btn-secondary { width: 100%; margin-top: 4px; }
 .modal-columns { display: flex; flex-direction: column; gap: 12px; }
 .modal-column { margin-bottom: 0; }
@@ -397,7 +399,7 @@ body {
 /* ---------- toast ---------- */
 .toast {
   position: fixed; bottom: 84px; left: 50%; transform: translateX(-50%);
-  z-index: 40;
+  z-index: 55;
   padding: 12px 18px; border-radius: 10px;
   font-weight: 600; font-size: 14px;
   max-width: 92vw;

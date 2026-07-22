@@ -169,7 +169,13 @@ export default function App() {
           onEditSaved={() => { setEditRecord(null); setPage('records'); }}
         />
       </div>
-      <div style={{ display: page === 'plan' ? '' : 'none' }}><PlanView /></div>
+      <div style={{ display: page === 'plan' ? '' : 'none' }}>
+        <PlanView
+          session={session}
+          role={role}
+          onEdit={(record) => { setEditRecord(record); setPage('form'); }}
+        />
+      </div>
       <div style={{ display: page === 'piles' ? '' : 'none' }}><PilesTable role={role} /></div>
       <div style={{ display: page === 'benchmarks' ? '' : 'none' }}><BenchmarksTable role={role} /></div>
       <div style={{ display: page === 'records' ? '' : 'none' }}>

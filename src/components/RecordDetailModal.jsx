@@ -9,6 +9,7 @@ import { fetchPhotos } from '../lib/photos';
 import { fetchReportInputs } from '../reports/fetchReportData';
 import { printPileReport } from '../reports/printPileReport';
 import { savePileReportImage } from '../reports/savePileReportImage';
+import { canEditRecord, canDeleteRecord } from '../lib/recordActions';
 
 function fmtWhen(row) {
   const t = row.measured_time
@@ -28,6 +29,21 @@ function crossCheckInfo(members) {
     maxDiff = Math.max(maxDiff, crossCheckDiff(primary, m));
   });
   return { count: members.length - 1, maxDiff };
+}
+
+// Edit/Delete for a single card's displayed record — same guard the Records
+// table row actions use, and the same onEditRecord/onDeleteRecord handlers
+// RecordsTable already wires up (which also close/adjust this modal).
+function CardActions({ record, session, role, onEditRecord, onDeleteRecord }) {
+  const canEdit = canEditRecord(record, session, role);
+  const canDelete = canDeleteRecord(record, session);
+  if (!canEdit && !canDelete) return null;
+  return (
+    <div className="card-actions">
+      {canEdit && <button className="link" onClick={() => onEditRecord(record.id)}>Edit · แก้ไข</button>}
+      {canDelete && <button className="link danger" onClick={() => onDeleteRecord(record)}>Delete · ลบ</button>}
+    </div>
+  );
 }
 
 function CrossCheckBadge({ cc, tol }) {
@@ -77,7 +93,7 @@ function OtherSurveys({ members, primary, tol, canSetPrimary, onSetPrimary }) {
 // `tolCrossCheckM` is the max allowed diff between two surveys of the same pile+stage.
 // `tolPositionM` is the live position tolerance — passed through to ResultReadout so its
 // OK/OVER verdict matches the current Settings value instead of the cached save-time one.
-export default function RecordDetailModal({ row, group, tolCrossCheckM, tolPositionM, columns, canSetPrimary, onSetPrimary, onClose }) {
+export default function RecordDetailModal({ row, group, tolCrossCheckM, tolPositionM, columns, canSetPrimary, onSetPrimary, session, role, onEditRecord, onDeleteRecord, onClose }) {
   const [printing, setPrinting] = useState(null);
   const [printError, setPrintError] = useState(null);
   const [saving, setSaving] = useState(null);
@@ -150,7 +166,10 @@ export default function RecordDetailModal({ row, group, tolCrossCheckM, tolPosit
               <p className="hint">{primary.surveyor} · {fmtWhen(primary)}</p>
               <CrossCheckBadge cc={cc} tol={tolCrossCheckM} />
             </div>
-            <button className="link" onClick={onClose}>Close · ปิด</button>
+            <div className="modal-header-actions">
+              <CardActions record={primary} session={session} role={role} onEditRecord={onEditRecord} onDeleteRecord={onDeleteRecord} />
+              <button className="link" onClick={onClose}>Close · ปิด</button>
+            </div>
           </div>
           <ResultReadout results={primary} p1El={primary.p1el} tol={tolPositionM != null ? { positionM: tolPositionM } : undefined} stage={primary.pile_stage} note={primary.note} />
           <PhotoStrip recordId={primary.id} pending={primary._pending} />
@@ -210,6 +229,7 @@ export default function RecordDetailModal({ row, group, tolCrossCheckM, tolPosit
         </div>
         <div className="modal-columns">
           <div className="card modal-column">
+            <CardActions record={beforePrimary} session={session} role={role} onEditRecord={onEditRecord} onDeleteRecord={onDeleteRecord} />
             <p className="hint">{beforePrimary.surveyor} · {fmtWhen(beforePrimary)}</p>
             <CrossCheckBadge cc={ccBefore} tol={tolCrossCheckM} />
             <ResultReadout results={beforePrimary} p1El={beforePrimary.p1el} tol={tolPositionM != null ? { positionM: tolPositionM } : undefined} stage="before" note={beforePrimary.note} />
@@ -234,6 +254,7 @@ export default function RecordDetailModal({ row, group, tolCrossCheckM, tolPosit
             </button>
           </div>
           <div className="card modal-column">
+            <CardActions record={afterPrimary} session={session} role={role} onEditRecord={onEditRecord} onDeleteRecord={onDeleteRecord} />
             <p className="hint">{afterPrimary.surveyor} · {fmtWhen(afterPrimary)}</p>
             <CrossCheckBadge cc={ccAfter} tol={tolCrossCheckM} />
             <ResultReadout results={afterPrimary} p1El={afterPrimary.p1el} tol={tolPositionM != null ? { positionM: tolPositionM } : undefined} stage="after" note={afterPrimary.note} />

@@ -7,6 +7,7 @@ import { exportRecordsToExcel } from '../lib/exportExcel';
 import RecordDetailModal from '../components/RecordDetailModal';
 import { effectivePrimary } from '../lib/primary';
 import { crossCheckDiff, posCheckFor } from '../lib/calculations';
+import { useRecordActions, canEditRecord, canDeleteRecord } from '../lib/recordActions';
 
 const STAGE_SHORT = { before: 'ก่อนตอก', after: 'หลังตอก' };
 const UNASSIGNED = '__unassigned__';
@@ -288,16 +289,26 @@ export default function RecordsTable({ session, role, onEdit }) {
     setRecords((rs) => rs.map((r) => (r.id === rowId ? { ...r, [key]: value } : r)));
   }
 
-  function handleEdit(id) {
-    const full = records.find((r) => r.id === id);
-    if (full) onEdit?.(full);
+  const { handleEdit, handleDelete } = useRecordActions({ records, setRecords, onEdit, setToast, stageLabels: STAGE_SHORT });
+
+  // Modal-specific wrappers around the shared edit/delete handlers above —
+  // same logic, plus closing/adjusting the detail modal since it's not
+  // visible from the table's row-actions callers.
+  function handleModalEdit(id) {
+    handleEdit(id);
+    setSelectedRow(null);
   }
 
-  async function handleDelete(id) {
-    if (!window.confirm('Delete this record? · ลบระเบียนนี้?')) return;
-    const { error } = await supabase.from('asbuilt_records').delete().eq('id', id);
-    if (error) { setToast({ type: 'err', msg: error.message }); setTimeout(() => setToast(null), 4000); return; }
-    setRecords((rs) => rs.filter((r) => r.id !== id));
+  async function handleModalDelete(deletedRow) {
+    const ok = await handleDelete(deletedRow);
+    if (!ok) return;
+    if (deletedRow.pile_stage !== selectedRow?.pile_stage) return;
+    const pileGroup = rowsByPile[deletedRow.pile_no] || {};
+    const remainingSameStage = (pileGroup[deletedRow.pile_stage] || []).filter((m) => m.id !== deletedRow.id);
+    if (remainingSameStage.length > 0) return;
+    const otherStage = deletedRow.pile_stage === 'before' ? 'after' : 'before';
+    const otherMembers = pileGroup[otherStage] || [];
+    setSelectedRow(otherMembers.length > 0 ? otherMembers[0] : null);
   }
 
   async function handleSetPrimary(recId) {
@@ -387,16 +398,12 @@ export default function RecordsTable({ session, role, onEdit }) {
           onSave={handleSave}
           frozenKeys={frozenKeys}
           actionsLabel="Actions · การกระทำ"
-          renderRowActions={(row) => {
-            const mine = session && row.created_by === session.user.id;
-            const canEdit = mine && (role === 'admin' || role === 'recorder');
-            return (
-              <>
-                {canEdit && <button className="link" onClick={() => handleEdit(row.id)}>Edit · แก้ไข</button>}
-                {mine && <button className="link danger" onClick={() => handleDelete(row.id)}>Delete · ลบ</button>}
-              </>
-            );
-          }}
+          renderRowActions={(row) => (
+            <>
+              {canEditRecord(row, session, role) && <button className="link" onClick={() => handleEdit(row.id)}>Edit · แก้ไข</button>}
+              {canDeleteRecord(row, session) && <button className="link danger" onClick={() => handleDelete(row)}>Delete · ลบ</button>}
+            </>
+          )}
         />
       )}
       {selectedRow && (
@@ -408,6 +415,10 @@ export default function RecordsTable({ session, role, onEdit }) {
           columns={COLUMNS}
           canSetPrimary={role === 'admin' || role === 'recorder'}
           onSetPrimary={handleSetPrimary}
+          session={session}
+          role={role}
+          onEditRecord={handleModalEdit}
+          onDeleteRecord={handleModalDelete}
           onClose={() => setSelectedRow(null)}
         />
       )}
