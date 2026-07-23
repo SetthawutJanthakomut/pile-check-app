@@ -1,23 +1,28 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 import DataTable from '../components/DataTable';
 
-const LABELS = {
-  tol_position_m: 'Position tolerance (m) · ค่าเผื่อตำแหน่ง (ม.)',
-  tol_tilt_deg: 'Tilt tolerance (°) · ค่าเผื่อความเอียง (องศา)',
-  tol_residual_m: 'Residual tolerance (m) · ค่าเผื่อระยะเบี่ยงเบน P3 (ม.)',
-  tol_bs_m: 'Backsight tolerance (m) · ค่าเผื่อหมุดหลัง (ม.)',
-  tol_coating_embed_m: 'Coating embed below seabed (m) · ระยะสีจมใต้ท้องทะเลขั้นต่ำ (ม.)',
-  tol_cross_check_m: 'Cross-check tolerance (m) · ค่าเผื่อเทียบผู้สำรวจ (ม.)',
+const LABEL_KEY = {
+  tol_position_m: 'settings.tolPosition',
+  tol_tilt_deg: 'settings.tolTilt',
+  tol_residual_m: 'settings.tolResidual',
+  tol_bs_m: 'settings.tolBs',
+  tol_coating_embed_m: 'settings.tolCoatingEmbed',
+  tol_cross_check_m: 'settings.tolCrossCheck',
 };
 
-const COLUMNS = [
-  { key: 'label', label: 'Setting · การตั้งค่า', type: 'readonly', width: 260 },
-  { key: 'value', label: 'Value · ค่า', type: 'number', decimals: 4, width: 110 },
-  { key: 'description', label: 'Description · คำอธิบาย', type: 'readonly' },
-];
+function getColumns(t) {
+  return [
+    { key: 'label', label: t('settings.col.setting'), type: 'readonly', width: 260, render: (_v, row) => (LABEL_KEY[row.key] ? t(LABEL_KEY[row.key]) : row.key) },
+    { key: 'value', label: t('settings.col.value'), type: 'number', decimals: 4, width: 110 },
+    { key: 'description', label: t('settings.col.description'), type: 'readonly' },
+  ];
+}
 
 export default function SettingsPage() {
+  const { t } = useTranslation();
+  const columns = useMemo(() => getColumns(t), [t]);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
@@ -26,7 +31,7 @@ export default function SettingsPage() {
     (async () => {
       const { data, error } = await supabase.from('project_settings').select('*').order('key');
       if (error) setToast({ type: 'err', msg: error.message });
-      setRows((data ?? []).map((r) => ({ id: r.key, ...r, label: LABELS[r.key] ?? r.key })));
+      setRows((data ?? []).map((r) => ({ id: r.key, ...r })));
       setLoading(false);
     })();
   }, []);
@@ -40,10 +45,10 @@ export default function SettingsPage() {
   return (
     <div className="page-wide">
       <div className="page-toolbar">
-        <h1>Settings · ตั้งค่า</h1>
+        <h1>{t('settings.pageTitle')}</h1>
       </div>
-      {loading ? <p className="hint">Loading… · กำลังโหลด</p> : (
-        <DataTable columns={COLUMNS} rows={rows} onSave={handleSave} />
+      {loading ? <p className="hint">{t('settings.loadingLabel')}</p> : (
+        <DataTable columns={columns} rows={rows} onSave={handleSave} />
       )}
       {toast && <div className={`toast ${toast.type}`}>{toast.msg}</div>}
     </div>

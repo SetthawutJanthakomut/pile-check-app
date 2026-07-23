@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { liveQuery } from 'dexie';
+import { useTranslation } from 'react-i18next';
 import { supabase } from './lib/supabase';
 import { localdb } from './lib/localdb';
 import { syncPending } from './lib/sync';
@@ -16,14 +17,39 @@ import TopBarRefresh from './components/TopBarRefresh';
 import { DataRefreshProvider } from './lib/dataRefresh';
 
 const PAGES = [
-  { key: 'form', label: 'Form · แบบฟอร์ม' },
-  { key: 'plan', label: 'Plan · แผนผัง' },
-  { key: 'piles', label: 'Design Piles · เข็มออกแบบ' },
-  { key: 'benchmarks', label: 'Benchmarks · หมุดอ้างอิง' },
-  { key: 'records', label: 'Records · บันทึก' },
-  { key: 'settings', label: 'Settings · ตั้งค่า', adminOnly: true },
-  { key: 'users', label: 'Users · จัดการผู้ใช้', adminOnly: true },
+  { key: 'form', labelKey: 'nav.form' },
+  { key: 'plan', labelKey: 'nav.plan' },
+  { key: 'piles', labelKey: 'nav.designPiles' },
+  { key: 'benchmarks', labelKey: 'nav.benchmarks' },
+  { key: 'records', labelKey: 'nav.records' },
+  { key: 'settings', labelKey: 'nav.settings', adminOnly: true },
+  { key: 'users', labelKey: 'nav.users', adminOnly: true },
 ];
+
+// Compact TH/EN toggle shown in the top bar, next to the user email / Sign
+// out / Refresh controls — persists the choice via i18n.js's localStorage sync.
+function LangToggle() {
+  const { i18n } = useTranslation();
+  return (
+    <span className="lang-toggle">
+      <button
+        type="button"
+        className={i18n.resolvedLanguage === 'th' ? 'active' : ''}
+        onClick={() => i18n.changeLanguage('th')}
+      >
+        TH
+      </button>
+      {' / '}
+      <button
+        type="button"
+        className={i18n.resolvedLanguage === 'en' ? 'active' : ''}
+        onClick={() => i18n.changeLanguage('en')}
+      >
+        EN
+      </button>
+    </span>
+  );
+}
 
 export default function App() {
   return (
@@ -34,6 +60,7 @@ export default function App() {
 }
 
 function AppInner() {
+  const { t } = useTranslation();
   const [session, setSession] = useState(undefined);
   const [role, setRole] = useState(null);
   const [status, setStatus] = useState(null);
@@ -122,15 +149,15 @@ function AppInner() {
         <div className="login-card">
           <div className="brand">
             <span className="brand-mark">⌖</span>
-            <h1>Pile Check</h1>
+            <h1>{t('common.app.brand')}</h1>
           </div>
           <p className="hint" style={{ textAlign: 'center', fontSize: 15 }}>
-            Waiting for admin approval · รอผู้ดูแลอนุมัติ
+            {t('common.app.pendingApproval')}
           </p>
           <p className="hint" style={{ textAlign: 'center', fontSize: 13 }}>
-            Contact your project admin to approve · ติดต่อผู้ดูแลโครงการเพื่ออนุมัติ
+            {t('common.app.pendingApprovalContact')}
           </p>
-          <button className="btn-save" onClick={() => supabase.auth.signOut()}>Sign out</button>
+          <button className="btn-save" onClick={() => supabase.auth.signOut()}>{t('common.app.signOut')}</button>
         </div>
       </div>
     );
@@ -140,20 +167,21 @@ function AppInner() {
     <>
       <header className="topbar">
         <span className="brand-mark">⌖</span>
-        <strong>Pile Check</strong>
+        <strong>{t('common.app.brand')}</strong>
         <span className="topbar-user">
           {session ? `${session.user.email} · ${role ?? '…'}` : ''}
         </span>
         {(pendingCount > 0 || pendingPhotoCount > 0) && (
           <span className="pending-indicator">
-            ⏳ {pendingCount} pending{pendingPhotoCount > 0 ? ` · ${pendingPhotoCount} photo(s)` : ''} · รอซิงค์
+            ⏳ {t('common.app.pendingRecords', { count: pendingCount })}{pendingPhotoCount > 0 ? ` · ${t('common.app.pendingPhotos', { count: pendingPhotoCount })}` : ''} · {t('common.app.waitingSync')}
           </span>
         )}
         <TopBarRefresh />
+        <LangToggle />
         {session ? (
-          <button className="link" onClick={() => supabase.auth.signOut()}>Sign out</button>
+          <button className="link" onClick={() => supabase.auth.signOut()}>{t('common.app.signOut')}</button>
         ) : (
-          <button className="link" onClick={() => setShowLogin(true)}>Sign in</button>
+          <button className="link" onClick={() => setShowLogin(true)}>{t('common.app.signIn')}</button>
         )}
       </header>
       <nav className="subnav">
@@ -163,7 +191,7 @@ function AppInner() {
             className={page === p.key ? 'active' : ''}
             onClick={() => setPage(p.key)}
           >
-            {p.label}
+            {t(p.labelKey)}
             {p.key === 'users' && pendingUsersCount > 0 && (
               <span className="nav-badge">{pendingUsersCount}</span>
             )}
@@ -209,8 +237,8 @@ function AppInner() {
           </div>
         </div>
       )}
-      {syncedToast && <div className="toast ok">Synced · ซิงค์สำเร็จ</div>}
-      {pwUpdatedToast && <div className="toast ok">Password updated · เปลี่ยนรหัสแล้ว</div>}
+      {syncedToast && <div className="toast ok">{t('common.app.toastSynced')}</div>}
+      {pwUpdatedToast && <div className="toast ok">{t('common.app.toastPasswordUpdated')}</div>}
     </>
   );
 }

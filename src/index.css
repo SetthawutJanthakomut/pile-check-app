@@ -49,6 +49,9 @@ body {
 .topbar-refresh .link:disabled { opacity: 0.6; cursor: not-allowed; }
 .topbar-refresh-time { font-size: 12px; opacity: 0.75; white-space: nowrap; }
 .topbar-refresh-offline { color: #ffe1b8; opacity: 1; }
+.lang-toggle { display: flex; align-items: center; gap: 2px; font-size: 12px; white-space: nowrap; }
+.lang-toggle button { background: none; border: none; color: inherit; opacity: 0.6; font: 600 12px var(--font); cursor: pointer; padding: 4px; }
+.lang-toggle button.active { opacity: 1; color: var(--accent); }
 .brand-mark { color: var(--accent); font-size: 20px; line-height: 1; }
 .pending-indicator {
   font-size: 12px; font-weight: 600;

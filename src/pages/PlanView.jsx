@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 import { effectivePrimary } from '../lib/primary';
 import { crossCheckDiff, posCheckFor } from '../lib/calculations';
 import { fmt } from '../lib/format';
 import RecordDetailModal from '../components/RecordDetailModal';
-import { COLUMNS } from './RecordsTable';
+import { getColumns } from './RecordsTable';
 import { useRecordActions } from '../lib/recordActions';
 import { useAutoRefresh } from '../lib/useAutoRefresh';
 import { useDataRefresh } from '../lib/dataRefresh';
@@ -69,21 +70,21 @@ function crossCheckMax(members) {
 // batter_bearing_deg is naturally omitted for VERT. piles since it's stored
 // as null for them (see 001_schema.sql), so no separate incline check is needed.
 const DESIGN_FIELDS = [
-  { key: 'dia_mm', label: 'Dia (mm) · เส้นผ่านศูนย์กลาง', decimals: 1 },
-  { key: 'pile_top_level', label: 'Top/Cut-off Level · ระดับหัวเข็ม' },
-  { key: 'pile_toe_level', label: 'Toe/Tip Level · ระดับปลายเข็ม' },
-  { key: 'length_m', label: 'Length (m) · ความยาว', decimals: 2 },
-  { key: 'coating_length_m', label: 'Coating (m) · ความยาวเคลือบ', decimals: 2 },
-  { key: 'batter_bearing_deg', label: 'Batter Az (°) · ทิศเอียง', decimals: 2 },
-  { key: 'sea_bed_level', label: 'Seabed Level · ระดับท้องทะเล' },
+  { key: 'dia_mm', labelKey: 'plan.design.diaMm', decimals: 1 },
+  { key: 'pile_top_level', labelKey: 'plan.design.topLevel' },
+  { key: 'pile_toe_level', labelKey: 'plan.design.toeLevel' },
+  { key: 'length_m', labelKey: 'plan.design.lengthM', decimals: 2 },
+  { key: 'coating_length_m', labelKey: 'plan.design.coatingM', decimals: 2 },
+  { key: 'batter_bearing_deg', labelKey: 'plan.design.batterAz', decimals: 2 },
+  { key: 'sea_bed_level', labelKey: 'plan.design.seabedLevel' },
 ];
 
 const LEGEND_ITEMS = [
-  { key: 'none', label: 'ยังไม่วัด · Not surveyed' },
-  { key: 'beforeOnly', label: 'ก่อนตอกแล้ว รอหลังตอก · Before only' },
-  { key: 'afterOk', label: 'หลังตอก OK · After OK' },
-  { key: 'afterOver', label: 'หลังตอก OVER · After OVER' },
-  { key: 'disagree', label: 'ผลวัดไม่ตรงกัน · Surveys disagree' },
+  { key: 'none', labelKey: 'plan.legendNone' },
+  { key: 'beforeOnly', labelKey: 'plan.legendBeforeOnly' },
+  { key: 'afterOk', labelKey: 'plan.legendAfterOk' },
+  { key: 'afterOver', labelKey: 'plan.legendAfterOver' },
+  { key: 'disagree', labelKey: 'plan.legendDisagree' },
 ];
 
 function statusLine(label, primary, tolPositionM) {
@@ -134,6 +135,7 @@ function PileMarker({ info, proj, r, showLabel, dim, pulsing, onSelect }) {
 }
 
 export default function PlanView({ session, role, onEdit }) {
+  const { t } = useTranslation();
   const [piles, setPiles] = useState([]);
   const [records, setRecords] = useState([]);
   const [tol, setTol] = useState(0.03);
@@ -463,7 +465,7 @@ export default function PlanView({ session, role, onEdit }) {
     if (!q) return;
     const match = pileInfo.find((pi) => pi.pile.pile_no.toLowerCase() === q)
       || pileInfo.find((pi) => pi.pile.pile_no.toLowerCase().includes(q));
-    if (!match) { setSearchMsg('Not found · ไม่พบ'); return; }
+    if (!match) { setSearchMsg(t('plan.searchNotFound')); return; }
     setSearchMsg('');
     const zoneOfMatch = match.pile.zone || UNASSIGNED;
     if (zones.length && selectedZone !== zoneOfMatch) {
@@ -520,31 +522,31 @@ export default function PlanView({ session, role, onEdit }) {
   const zoneLabel = !selectedZone
     ? '—'
     : selectedZone === UNASSIGNED
-      ? '(Unassigned) · ไม่ระบุโซน'
+      ? t('plan.unassignedZone')
       : selectedZone;
 
   return (
     <div className="page-wide plan-page">
       <div className="page-toolbar">
-        <h1>Plan · แผนผัง</h1>
+        <h1>{t('plan.title')}</h1>
         <form
           className="plan-search"
           onSubmit={(e) => { e.preventDefault(); goToPile(search); }}
         >
           <input
             className="filter-input"
-            placeholder="Search pile no. · ค้นหาเลขเข็ม"
+            placeholder={t('plan.searchPlaceholder')}
             value={search}
             onChange={(e) => { setSearch(e.target.value); setSearchMsg(''); }}
           />
-          <button className="btn-secondary" type="submit">Go · ไป</button>
+          <button className="btn-secondary" type="submit">{t('plan.go')}</button>
         </form>
         {searchMsg && <span className="hint">{searchMsg}</span>}
       </div>
 
       {zones.length > 0 && (
         <div className="zone-filter">
-          <span className="zone-filter-label">Zone · โซน</span>
+          <span className="zone-filter-label">{t('plan.zone')}</span>
           {zones.map((z) => (
             <button
               key={z}
@@ -552,16 +554,16 @@ export default function PlanView({ session, role, onEdit }) {
               className={`zone-pill${selectedZone === z ? ' active' : ''}`}
               onClick={() => setSelectedZone(z)}
             >
-              {z === UNASSIGNED ? '(Unassigned) · ไม่ระบุโซน' : z}
+              {z === UNASSIGNED ? t('plan.unassignedZone') : z}
             </button>
           ))}
         </div>
       )}
 
       {loading ? (
-        <p className="hint">Loading… · กำลังโหลด</p>
+        <p className="hint">{t('plan.loading')}</p>
       ) : !pileInfo.length ? (
-        <p className="hint">No piles with coordinates to plot · ไม่มีเข็มที่มีพิกัดให้แสดง</p>
+        <p className="hint">{t('plan.noPiles')}</p>
       ) : (
         <div className="plan-canvas-wrap" ref={containerRef}>
           <svg
@@ -617,7 +619,7 @@ export default function PlanView({ session, role, onEdit }) {
 
           <div className={`plan-legend${legendOpen ? '' : ' collapsed'}`}>
             <button className="plan-legend-toggle" onClick={() => setLegendOpen((o) => !o)}>
-              {legendOpen ? `Legend ▾ · คำอธิบาย — ${zoneLabel}` : 'Legend ▸'}
+              {legendOpen ? `${t('plan.legend')} ▾ — ${zoneLabel}` : `${t('plan.legend')} ▸`}
             </button>
             {legendOpen && (
               <ul>
@@ -628,7 +630,7 @@ export default function PlanView({ session, role, onEdit }) {
                     onClick={() => toggleFilter(item.key)}
                   >
                     <span className={`plan-swatch plan-swatch-${item.key}`} />
-                    {item.label} ({counts[item.key]})
+                    {t(item.labelKey)} ({counts[item.key]})
                   </li>
                 ))}
               </ul>
@@ -642,7 +644,7 @@ export default function PlanView({ session, role, onEdit }) {
                 <button className="link" onClick={() => setSelectedPile(null)}>✕</button>
               </div>
               <p className="hint">
-                Zone · โซน: {popoverInfo.pile.zone || '—'} · Incline · ความเอียง: {popoverInfo.pile.incline || '—'}
+                {t('plan.zone')}: {popoverInfo.pile.zone || '—'} · {t('plan.incline')}: {popoverInfo.pile.incline || '—'}
               </p>
               <p className="hint mono">
                 PN {fmt(Number(popoverInfo.pile.coordinate_pn), 3)} / PE {fmt(Number(popoverInfo.pile.coordinate_pe), 3)}
@@ -654,23 +656,23 @@ export default function PlanView({ session, role, onEdit }) {
                   className="plan-popover-design-toggle"
                   onClick={() => setDesignOpen((o) => !o)}
                 >
-                  {designOpen ? '▾' : '▸'} Design details · ข้อมูลออกแบบ
+                  {designOpen ? '▾' : '▸'} {t('plan.designDetails')}
                 </button>
                 {designOpen && (
                   <div className="plan-popover-design-body">
-                    {DESIGN_FIELDS.map(({ key, label, decimals }) => {
+                    {DESIGN_FIELDS.map(({ key, labelKey, decimals }) => {
                       const v = popoverInfo.pile[key];
                       if (v == null || v === '') return null;
                       return (
                         <div className="plan-popover-kv" key={key}>
-                          <span>{label}</span>
+                          <span>{t(labelKey)}</span>
                           <b className="mono">{fmt(Number(v), decimals ?? 3)}</b>
                         </div>
                       );
                     })}
                     {popoverInfo.pile.note && (
                       <div className="plan-popover-kv">
-                        <span>Note · หมายเหตุ</span>
+                        <span>{t('plan.note')}</span>
                         <b>{popoverInfo.pile.note}</b>
                       </div>
                     )}
@@ -682,7 +684,7 @@ export default function PlanView({ session, role, onEdit }) {
               <div className="plan-popover-line">{statusLine('หลังตอก', popoverInfo.afterPrimary, tolPositionM)}</div>
               {(popoverInfo.afterPrimary || popoverInfo.beforePrimary) && (
                 <button className="btn-secondary" onClick={() => handleViewRecord(popoverInfo)}>
-                  View record · ดูบันทึก
+                  {t('plan.viewRecord')}
                 </button>
               )}
             </div>
@@ -696,7 +698,7 @@ export default function PlanView({ session, role, onEdit }) {
           group={modalGroup.group}
           tolCrossCheckM={tol}
           tolPositionM={tolPositionM}
-          columns={COLUMNS}
+          columns={getColumns(t)}
           canSetPrimary={false}
           onSetPrimary={() => {}}
           session={session}

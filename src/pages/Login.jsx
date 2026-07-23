@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 
 export default function Login({ onClose }) {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -21,7 +23,7 @@ export default function Login({ onClose }) {
       await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
       setBusy(false);
       // Always show the same message, whether or not the email exists.
-      setNotice('Reset link sent — check your email · ส่งลิงก์แล้ว โปรดเช็คอีเมล');
+      setNotice(t('login.resetLinkSent'));
       return;
     }
     const fn = mode === 'signin'
@@ -33,7 +35,7 @@ export default function Login({ onClose }) {
       console.log('Supabase auth error:', error); // TEMP DEBUG - remove after diagnosing login issue
       setErr(error.message);
     }
-    else if (mode === 'signup') setNotice('Registered! 1) Confirm via the email we sent 2) Then WAIT for admin approval before you can use the system · สมัครแล้ว! 1) ยืนยันอีเมลตามลิงก์ที่ส่งไป 2) จากนั้นรอผู้ดูแลอนุมัติ จึงจะใช้งานได้');
+    else if (mode === 'signup') setNotice(t('login.signupNotice'));
     else onClose?.();
   }
 
@@ -42,14 +44,14 @@ export default function Login({ onClose }) {
       <div className="brand">
         <span className="brand-mark">⌖</span>
         <h1>Pile Check</h1>
-        <p>As-built pile check by total station</p>
+        <p>{t('login.tagline')}</p>
       </div>
       <form onSubmit={submit}>
-        <label className="field"><span>Email</span>
+        <label className="field"><span>{t('login.emailLabel')}</span>
           <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></label>
         {mode !== 'reset' && (
           <>
-            <label className="field"><span>Password</span>
+            <label className="field"><span>{t('login.passwordLabel')}</span>
               <div className="pw-wrap">
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -59,13 +61,13 @@ export default function Login({ onClose }) {
                   onChange={(e) => setPassword(e.target.value)}
                 />
                 <button type="button" className="pw-toggle" onClick={() => setShowPassword((v) => !v)}>
-                  {showPassword ? 'Hide · ซ่อน' : 'Show · แสดง'}
+                  {showPassword ? t('login.hidePassword') : t('login.showPassword')}
                 </button>
               </div>
             </label>
             {mode === 'signin' && (
               <button type="button" className="link" onClick={() => switchMode('reset')}>
-                Forgot password? · ลืมรหัสผ่าน
+                {t('login.forgotPassword')}
               </button>
             )}
           </>
@@ -73,19 +75,19 @@ export default function Login({ onClose }) {
         {err && <p className="form-err">{err}</p>}
         {notice && <p className="hint">{notice}</p>}
         <button className="btn-save" disabled={busy}>
-          {busy ? '…' : mode === 'signin' ? 'Sign in' : mode === 'signup' ? 'Create account' : 'Send reset link · ส่งลิงก์รีเซ็ต'}
+          {busy ? '…' : mode === 'signin' ? t('login.signInBtn') : mode === 'signup' ? t('login.createAccountBtn') : t('login.sendResetBtn')}
         </button>
       </form>
       {mode === 'reset' ? (
         <button className="link" onClick={() => switchMode('signin')}>
-          Back to sign in · กลับไปเข้าสู่ระบบ
+          {t('login.backToSignIn')}
         </button>
       ) : (
         <button className="link" onClick={() => switchMode(mode === 'signin' ? 'signup' : 'signin')}>
-          {mode === 'signin' ? 'New user? Create account' : 'Have an account? Sign in'}
+          {mode === 'signin' ? t('login.newUserPrompt') : t('login.haveAccountPrompt')}
         </button>
       )}
-      <button className="link" onClick={onClose}>Close · ปิด</button>
+      <button className="link" onClick={onClose}>{t('login.close')}</button>
     </div>
   );
 }

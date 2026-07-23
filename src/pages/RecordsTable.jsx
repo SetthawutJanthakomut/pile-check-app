@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { liveQuery } from 'dexie';
 import { supabase } from '../lib/supabase';
 import { localdb } from '../lib/localdb';
@@ -7,11 +8,11 @@ import { exportRecordsToExcel } from '../lib/exportExcel';
 import RecordDetailModal from '../components/RecordDetailModal';
 import { effectivePrimary } from '../lib/primary';
 import { crossCheckDiff, posCheckFor } from '../lib/calculations';
+import { DIR_KEY, CHECK_KEY, MARGIN_KEY } from '../lib/statusLabels';
 import { useRecordActions, canEditRecord, canDeleteRecord } from '../lib/recordActions';
 import { useAutoRefresh } from '../lib/useAutoRefresh';
 import { useDataRefresh } from '../lib/dataRefresh';
 
-const STAGE_SHORT = { before: 'ก่อนตอก', after: 'หลังตอก' };
 const UNASSIGNED = '__unassigned__';
 
 function fmtDateTime(measuredAt, measuredTime) {
@@ -21,67 +22,71 @@ function fmtDateTime(measuredAt, measuredTime) {
 
 // Exported so other read paths (e.g. the Plan tab's popover) can hand the
 // same column set to exportRecordsToExcel / RecordDetailModal.
-export const COLUMNS = [
-  { key: 'no', label: 'No.', type: 'readonly', width: 44, render: (v) => v ?? '—' },
-  { key: 'pile_no', label: 'Pile No. · เลขเข็ม', type: 'readonly', width: 90 },
-  { key: 'pile_stage', label: 'Stage · ระยะ', type: 'readonly', width: 80, render: (v) => STAGE_SHORT[v] ?? '—' },
-  { key: 'note', label: 'Note · หมายเหตุ', type: 'readonly', width: 160 },
-  {
-    key: '_datetime', label: 'Measured · วันเวลา', type: 'readonly', width: 140,
-    render: (_v, row) => fmtDateTime(row.measured_at, row.measured_time),
-  },
-  { key: 'surveyor', label: 'Surveyor · ผู้สำรวจ', type: 'text', width: 140 },
-  { key: 'stn_name', label: 'STN · จุดตั้งกล้อง', type: 'readonly', width: 80 },
-  { key: 'p1n', label: 'P1 N', type: 'readonly' }, { key: 'p1e', label: 'P1 E', type: 'readonly' }, { key: 'p1el', label: 'P1 El.', type: 'readonly' },
-  { key: 'p2n', label: 'P2 N', type: 'readonly' }, { key: 'p2e', label: 'P2 E', type: 'readonly' }, { key: 'p2el', label: 'P2 El.', type: 'readonly' },
-  { key: 'p3n', label: 'P3 N', type: 'readonly' }, { key: 'p3e', label: 'P3 E', type: 'readonly' }, { key: 'p3el', label: 'P3 El.', type: 'readonly' },
-  { key: 'measured_seabed', label: 'Meas. Seabed · ท้องทะเลวัด', type: 'readonly' },
-  { key: 'axisAz', label: 'Axis Az · แนวแกน', type: 'readonly' },
-  { key: 'slope', label: 'Slope · ความชัน', type: 'readonly' },
-  { key: 'tiltDeg', label: 'Tilt (°) · เอียง', type: 'readonly' },
-  { key: 'azStnP1', label: 'Az STN→P1', type: 'readonly' },
-  { key: 'centerN', label: 'Center N', type: 'readonly' },
-  { key: 'centerE', label: 'Center E', type: 'readonly' },
-  { key: 'asbuiltN', label: 'As-built N', type: 'readonly' },
-  { key: 'asbuiltE', label: 'As-built E', type: 'readonly' },
-  { key: 'diffN', label: 'Diff N', type: 'readonly' },
-  { key: 'dirN', label: 'Dir N', type: 'readonly', width: 90 },
-  { key: 'diffE', label: 'Diff E', type: 'readonly' },
-  { key: 'dirE', label: 'Dir E', type: 'readonly', width: 90 },
-  { key: 'totalDev', label: 'Total Dev · เบี่ยงเบนรวม', type: 'readonly' },
-  { key: 'posCheck', label: 'Pos Check', type: 'readonly', verdict: true, width: 80 },
-  { key: 'residual', label: 'Residual (P3)', type: 'readonly' },
-  { key: 'p3Check', label: 'P3 Check', type: 'readonly', verdict: true, width: 80 },
-  { key: 'designTilt', label: 'Design Tilt (°)', type: 'readonly' },
-  { key: 'tiltDiff', label: 'Tilt Diff (°)', type: 'readonly' },
-  { key: 'slopeCheck', label: 'Slope Check', type: 'readonly', verdict: true, width: 90 },
-  { key: 'designBatterAz', label: 'Design Batter Az', type: 'readonly' },
-  { key: 'asbuiltBatterAz', label: 'As-built Batter Az', type: 'readonly' },
-  { key: 'diffBatterAz', label: 'Diff Batter Az', type: 'readonly' },
-  { key: 'toeN', label: 'Toe N', type: 'readonly' },
-  { key: 'toeE', label: 'Toe E', type: 'readonly' },
-  { key: 'toeZ', label: 'Toe Z', type: 'readonly' },
-  { key: 'coatingBottomEl', label: 'Coating Bottom El.', type: 'readonly' },
-  { key: 'seabedUsed', label: 'Seabed Used', type: 'readonly' },
-  { key: 'marginToSeabed', label: 'Margin to Seabed', type: 'readonly' },
-  { key: 'marginLabel', label: 'Margin Label', type: 'readonly', width: 110 },
-  { key: 'seabedDiff', label: 'Seabed Diff', type: 'readonly' },
-  { key: 'is_shared', label: 'Shared · แชร์', type: 'boolean', width: 70 },
-];
+export function getColumns(t) {
+  return [
+    { key: 'no', label: t('records.col.no'), type: 'readonly', width: 44, render: (v) => v ?? '—' },
+    { key: 'pile_no', label: t('records.col.pileNo'), type: 'readonly', width: 90 },
+    { key: 'pile_stage', label: t('records.col.stage'), type: 'readonly', width: 80, render: (v) => (v ? t(`common.stage.${v}Short`) : '—') },
+    { key: 'note', label: t('records.col.note'), type: 'readonly', width: 160 },
+    {
+      key: '_datetime', label: t('records.col.measured'), type: 'readonly', width: 140,
+      render: (_v, row) => fmtDateTime(row.measured_at, row.measured_time),
+    },
+    { key: 'surveyor', label: t('records.col.surveyor'), type: 'text', width: 140 },
+    { key: 'stn_name', label: t('records.col.stn'), type: 'readonly', width: 80 },
+    { key: 'p1n', label: t('records.col.p1n'), type: 'readonly' }, { key: 'p1e', label: t('records.col.p1e'), type: 'readonly' }, { key: 'p1el', label: t('records.col.p1el'), type: 'readonly' },
+    { key: 'p2n', label: t('records.col.p2n'), type: 'readonly' }, { key: 'p2e', label: t('records.col.p2e'), type: 'readonly' }, { key: 'p2el', label: t('records.col.p2el'), type: 'readonly' },
+    { key: 'p3n', label: t('records.col.p3n'), type: 'readonly' }, { key: 'p3e', label: t('records.col.p3e'), type: 'readonly' }, { key: 'p3el', label: t('records.col.p3el'), type: 'readonly' },
+    { key: 'measured_seabed', label: t('records.col.measSeabed'), type: 'readonly' },
+    { key: 'axisAz', label: t('records.col.axisAz'), type: 'readonly' },
+    { key: 'slope', label: t('records.col.slope'), type: 'readonly' },
+    { key: 'tiltDeg', label: t('records.col.tiltDeg'), type: 'readonly' },
+    { key: 'azStnP1', label: t('records.col.azStnP1'), type: 'readonly' },
+    { key: 'centerN', label: t('records.col.centerN'), type: 'readonly' },
+    { key: 'centerE', label: t('records.col.centerE'), type: 'readonly' },
+    { key: 'asbuiltN', label: t('records.col.asbuiltN'), type: 'readonly' },
+    { key: 'asbuiltE', label: t('records.col.asbuiltE'), type: 'readonly' },
+    { key: 'diffN', label: t('records.col.diffN'), type: 'readonly' },
+    { key: 'dirN', label: t('records.col.dirN'), type: 'readonly', width: 90, render: (v) => (DIR_KEY[v] ? t(DIR_KEY[v]) : (v ?? '—')) },
+    { key: 'diffE', label: t('records.col.diffE'), type: 'readonly' },
+    { key: 'dirE', label: t('records.col.dirE'), type: 'readonly', width: 90, render: (v) => (DIR_KEY[v] ? t(DIR_KEY[v]) : (v ?? '—')) },
+    { key: 'totalDev', label: t('records.col.totalDev'), type: 'readonly' },
+    { key: 'posCheck', label: t('records.col.posCheck'), type: 'readonly', verdict: true, width: 80, render: (v) => (CHECK_KEY[v] ? t(CHECK_KEY[v]) : (v ?? '—')) },
+    { key: 'residual', label: t('records.col.residual'), type: 'readonly' },
+    { key: 'p3Check', label: t('records.col.p3Check'), type: 'readonly', verdict: true, width: 80, render: (v) => (CHECK_KEY[v] ? t(CHECK_KEY[v]) : (v ?? '—')) },
+    { key: 'designTilt', label: t('records.col.designTilt'), type: 'readonly' },
+    { key: 'tiltDiff', label: t('records.col.tiltDiff'), type: 'readonly' },
+    { key: 'slopeCheck', label: t('records.col.slopeCheck'), type: 'readonly', verdict: true, width: 90, render: (v) => (CHECK_KEY[v] ? t(CHECK_KEY[v]) : (v ?? '—')) },
+    { key: 'designBatterAz', label: t('records.col.designBatterAz'), type: 'readonly' },
+    { key: 'asbuiltBatterAz', label: t('records.col.asbuiltBatterAz'), type: 'readonly' },
+    { key: 'diffBatterAz', label: t('records.col.diffBatterAz'), type: 'readonly' },
+    { key: 'toeN', label: t('records.col.toeN'), type: 'readonly' },
+    { key: 'toeE', label: t('records.col.toeE'), type: 'readonly' },
+    { key: 'toeZ', label: t('records.col.toeZ'), type: 'readonly' },
+    { key: 'coatingBottomEl', label: t('records.col.coatingBottomEl'), type: 'readonly' },
+    { key: 'seabedUsed', label: t('records.col.seabedUsed'), type: 'readonly' },
+    { key: 'marginToSeabed', label: t('records.col.marginToSeabed'), type: 'readonly' },
+    { key: 'marginLabel', label: t('records.col.marginLabel'), type: 'readonly', width: 110, render: (v) => (MARGIN_KEY[v] ? t(MARGIN_KEY[v]) : (v ?? '—')) },
+    { key: 'seabedDiff', label: t('records.col.seabedDiff'), type: 'readonly' },
+    { key: 'is_shared', label: t('records.col.isShared'), type: 'boolean', width: 70 },
+  ];
+}
 
-const FREEZE_CANDIDATES = [
-  { key: '_view', label: 'View' },
-  { key: 'no', label: 'No.' },
-  { key: 'pile_no', label: 'Pile No.' },
-  { key: 'pile_stage', label: 'Stage' },
-  { key: 'note', label: 'Note' },
-  { key: '_datetime', label: 'Measured' },
-  { key: 'surveyor', label: 'Surveyor' },
-  { key: 'stn_name', label: 'STN' },
-];
 const DEFAULT_FROZEN_KEYS = ['_view', 'pile_no'];
 
 export default function RecordsTable({ session, role, onEdit }) {
+  const { t } = useTranslation();
+  const columns = useMemo(() => getColumns(t), [t]);
+  const freezeCandidates = useMemo(() => [
+    { key: '_view', label: t('records.viewBtn') },
+    { key: 'no', label: t('records.col.no') },
+    { key: 'pile_no', label: t('records.col.pileNo') },
+    { key: 'pile_stage', label: t('records.col.stage') },
+    { key: 'note', label: t('records.col.note') },
+    { key: '_datetime', label: t('records.col.measured') },
+    { key: 'surveyor', label: t('records.col.surveyor') },
+    { key: 'stn_name', label: t('records.col.stn') },
+  ], [t]);
   const [records, setRecords] = useState([]);
   const [toast, setToast] = useState(null);
   const [filterPile, setFilterPile] = useState('');
@@ -286,7 +291,8 @@ export default function RecordsTable({ session, role, onEdit }) {
     setRecords((rs) => rs.map((r) => (r.id === rowId ? { ...r, [key]: value } : r)));
   }
 
-  const { handleEdit, handleDelete } = useRecordActions({ records, setRecords, onEdit, setToast, stageLabels: STAGE_SHORT });
+  const stageShort = { before: t('common.stage.beforeShort'), after: t('common.stage.afterShort') };
+  const { handleEdit, handleDelete } = useRecordActions({ records, setRecords, onEdit, setToast, stageLabels: stageShort });
 
   // Modal-specific wrappers around the shared edit/delete handlers above —
   // same logic, plus closing/adjusting the detail modal since it's not
@@ -320,13 +326,13 @@ export default function RecordsTable({ session, role, onEdit }) {
       key: '_view', label: '', type: 'readonly', width: 50,
       render: (_v, row) => (
         <>
-          {row._pending && <span className="pending-badge">⏳ pending sync · รอซิงค์</span>}
+          {row._pending && <span className="pending-badge">{t('records.pendingBadge')}</span>}
           {photoCounts[row.id] > 0 && <span className="photo-badge">📷 {photoCounts[row.id]}</span>}
-          <button className="link" onClick={() => setSelectedRow(row)}>View</button>
+          <button className="link" onClick={() => setSelectedRow(row)}>{t('records.viewBtn')}</button>
         </>
       ),
     },
-    ...COLUMNS.map((col) => {
+    ...columns.map((col) => {
       if (col.key !== 'pile_no') return col;
       return {
         ...col,
@@ -336,7 +342,7 @@ export default function RecordsTable({ session, role, onEdit }) {
             {row._multi && (
               <span
                 className={`multi-badge${row._multi.maxDiff > tolCrossCheckM ? ' warn' : ''}`}
-                title={`${row._multi.count} surveys of this pile — click View for details · มี ${row._multi.count} การวัด กดดูรายละเอียด`}
+                title={t('records.multiSurveyTooltip', { count: row._multi.count })}
               >
                 {' '}ⓘ {row._multi.count}{row._multi.maxDiff > tolCrossCheckM ? ' ⚠' : ''}
               </span>
@@ -350,24 +356,24 @@ export default function RecordsTable({ session, role, onEdit }) {
   return (
     <div className="page-wide">
       <div className="page-toolbar">
-        <h1>AsBuilt Records · บันทึกเข็มจริง</h1>
+        <h1>{t('records.pageTitle')}</h1>
         <input
           className="filter-input"
-          placeholder="Filter pile no. · ค้นหาเลขเข็ม"
+          placeholder={t('records.filterPlaceholder')}
           value={filterPile}
           onChange={(e) => setFilterPile(e.target.value)}
         />
         {session && (
           <label className="share-toggle">
             <input type="checkbox" checked={mineOnly} onChange={(e) => setMineOnly(e.target.checked)} />
-            <span>Mine only · เฉพาะของฉัน</span>
+            <span>{t('records.mineOnlyLabel')}</span>
           </label>
         )}
-        <button className="btn-secondary" disabled={!flatRows.length} onClick={() => exportRecordsToExcel(COLUMNS, flatRows)}>
-          Export Excel · ส่งออกเอ็กเซล
+        <button className="btn-secondary" disabled={!flatRows.length} onClick={() => exportRecordsToExcel(columns, flatRows)}>
+          {t('records.exportExcelBtn')}
         </button>
         <FreezeColumnsMenu
-          candidates={FREEZE_CANDIDATES}
+          candidates={freezeCandidates}
           frozenKeys={frozenKeys}
           onToggle={toggleFrozen}
           onReset={resetFrozen}
@@ -375,7 +381,7 @@ export default function RecordsTable({ session, role, onEdit }) {
       </div>
       {zones.length > 0 && (
         <div className="zone-filter">
-          <span className="zone-filter-label">Filter by Zone · กรองตามโซน</span>
+          <span className="zone-filter-label">{t('records.filterByZoneLabel')}</span>
           {zones.map((z) => (
             <button
               key={z}
@@ -383,22 +389,22 @@ export default function RecordsTable({ session, role, onEdit }) {
               className={`zone-pill${zoneFilters.has(z) ? ' active' : ''}`}
               onClick={() => toggleZoneFilter(z)}
             >
-              {z === UNASSIGNED ? '(Unassigned) · ไม่ระบุโซน' : z}
+              {z === UNASSIGNED ? t('records.unassignedZone') : z}
             </button>
           ))}
         </div>
       )}
-      {loading ? <p className="hint">Loading… · กำลังโหลด</p> : (
+      {loading ? <p className="hint">{t('plan.loading')}</p> : (
         <DataTable
           columns={viewColumns}
           rows={flatRows}
           onSave={handleSave}
           frozenKeys={frozenKeys}
-          actionsLabel="Actions · การกระทำ"
+          actionsLabel={t('records.actionsLabel')}
           renderRowActions={(row) => (
             <>
-              {canEditRecord(row, session, role) && <button className="link" onClick={() => handleEdit(row.id)}>Edit · แก้ไข</button>}
-              {canDeleteRecord(row, session) && <button className="link danger" onClick={() => handleDelete(row)}>Delete · ลบ</button>}
+              {canEditRecord(row, session, role) && <button className="link" onClick={() => handleEdit(row.id)}>{t('records.editBtn')}</button>}
+              {canDeleteRecord(row, session) && <button className="link danger" onClick={() => handleDelete(row)}>{t('records.deleteBtn')}</button>}
             </>
           )}
         />
@@ -409,7 +415,7 @@ export default function RecordsTable({ session, role, onEdit }) {
           group={rowsByPile[selectedRow.pile_no]}
           tolCrossCheckM={tolCrossCheckM}
           tolPositionM={tolPositionM}
-          columns={COLUMNS}
+          columns={columns}
           canSetPrimary={role === 'admin' || role === 'recorder'}
           onSetPrimary={handleSetPrimary}
           session={session}

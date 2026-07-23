@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useDataRefresh } from '../lib/dataRefresh';
 
 function formatHM(date) {
@@ -7,16 +8,17 @@ function formatHM(date) {
 // Global "refresh all data pages" control, shown in the top bar next to
 // Sign in / the user email so it's reachable from every page.
 export default function TopBarRefresh() {
+  const { t } = useTranslation();
   const { lastUpdated, refreshing, offlineHint, bump } = useDataRefresh();
   return (
     <span className="topbar-refresh">
       <button type="button" className="link" disabled={refreshing} onClick={bump}>
-        {refreshing ? '⏳' : '🔄'} Refresh · รีเฟรช
+        {refreshing ? '⏳' : '🔄'} {t('common.topbar.refresh')}
       </button>
       {offlineHint ? (
-        <span className="topbar-refresh-time topbar-refresh-offline">Offline · ออฟไลน์</span>
+        <span className="topbar-refresh-time topbar-refresh-offline">{t('common.topbar.offline')}</span>
       ) : lastUpdated ? (
-        <span className="topbar-refresh-time">Updated {formatHM(lastUpdated)} · ข้อมูล ณ {formatHM(lastUpdated)}</span>
+        <span className="topbar-refresh-time">{t('common.topbar.updatedAt', { time: formatHM(lastUpdated) })}</span>
       ) : null}
     </span>
   );

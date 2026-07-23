@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 // Reusable searchable dropdown for the Pile No. / Station / BS pickers.
 // options: [{ value, label, secondary? }]. trailingOption (optional): an
@@ -8,11 +9,14 @@ export default function SearchSelect({
   options,
   value,
   onChange,
-  placeholder = 'Search…',
+  placeholder,
   trailingOption = null,
-  emptyText = 'No matches · ไม่พบ',
+  emptyText,
   error = false,
 }) {
+  const { t } = useTranslation();
+  const effectivePlaceholder = placeholder ?? t('common.searchSelect.placeholder');
+  const effectiveEmptyText = emptyText ?? t('common.searchSelect.noMatches');
   const [query, setQuery] = useState(null); // null = show selected label; string = actively searching
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -98,7 +102,7 @@ export default function SearchSelect({
         onChange={handleChange}
         onKeyDown={handleKeyDown}
         onBlur={handleBlur}
-        placeholder={placeholder}
+        placeholder={effectivePlaceholder}
         autoComplete="off"
         role="combobox"
         aria-expanded={open}
@@ -106,7 +110,7 @@ export default function SearchSelect({
       />
       {open && (
         <ul className="search-select-list" role="listbox">
-          {list.length === 0 && <li className="search-select-empty">{emptyText}</li>}
+          {list.length === 0 && <li className="search-select-empty">{effectiveEmptyText}</li>}
           {list.map((opt, i) => (
             <li
               key={opt.value}

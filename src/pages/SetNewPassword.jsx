@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 
 export default function SetNewPassword({ onDone }) {
+  const { t } = useTranslation();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -12,11 +14,11 @@ export default function SetNewPassword({ onDone }) {
     e.preventDefault();
     setErr(null);
     if (password.length < 6) {
-      setErr('Password must be at least 6 characters · รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร');
+      setErr(t('login.passwordTooShort'));
       return;
     }
     if (password !== confirm) {
-      setErr('Passwords do not match · รหัสผ่านไม่ตรงกัน');
+      setErr(t('login.passwordMismatch'));
       return;
     }
     setBusy(true);
@@ -30,10 +32,10 @@ export default function SetNewPassword({ onDone }) {
     <div className="login-card">
       <div className="brand">
         <span className="brand-mark">⌖</span>
-        <h1>Set new password · ตั้งรหัสผ่านใหม่</h1>
+        <h1>{t('login.setNewPasswordTitle')}</h1>
       </div>
       <form onSubmit={submit}>
-        <label className="field"><span>New password · รหัสผ่านใหม่</span>
+        <label className="field"><span>{t('login.newPasswordLabel')}</span>
           <div className="pw-wrap">
             <input
               type={showPassword ? 'text' : 'password'}
@@ -43,11 +45,11 @@ export default function SetNewPassword({ onDone }) {
               onChange={(e) => setPassword(e.target.value)}
             />
             <button type="button" className="pw-toggle" onClick={() => setShowPassword((v) => !v)}>
-              {showPassword ? 'Hide · ซ่อน' : 'Show · แสดง'}
+              {showPassword ? t('login.hidePassword') : t('login.showPassword')}
             </button>
           </div>
         </label>
-        <label className="field"><span>Confirm password · ยืนยันรหัสผ่าน</span>
+        <label className="field"><span>{t('login.confirmPasswordLabel')}</span>
           <input
             type={showPassword ? 'text' : 'password'}
             required
@@ -57,7 +59,7 @@ export default function SetNewPassword({ onDone }) {
           />
         </label>
         {err && <p className="form-err">{err}</p>}
-        <button className="btn-save" disabled={busy}>{busy ? '…' : 'Set password · ตั้งรหัสผ่าน'}</button>
+        <button className="btn-save" disabled={busy}>{busy ? '…' : t('login.setPasswordBtn')}</button>
       </form>
     </div>
   );

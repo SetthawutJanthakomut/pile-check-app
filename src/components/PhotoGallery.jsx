@@ -1,17 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { liveQuery } from 'dexie';
+import { useTranslation } from 'react-i18next';
 import { localdb } from '../lib/localdb';
-import { fetchPhotos, photoUrl, PHOTO_TYPES } from '../lib/photos';
+import { fetchPhotos, photoUrl } from '../lib/photos';
 
-function typeLabel(v) {
-  return PHOTO_TYPES.find((t) => t.value === v)?.label ?? v;
-}
+const PHOTO_TYPE_KEY = { pile: 'common.photos.typePile', ts_screen: 'common.photos.typeTsScreen', other: 'common.photos.typeOther' };
 
 // Read-only: thumbnail strip + lightbox for a saved record's photos. Adding
 // or removing photos happens only in the Form's edit mode. `pending` marks a
 // record that's still in the offline queue — its photos live as blobs in
 // Dexie (not yet uploaded), so they're read from there instead of the network.
 export default function PhotoStrip({ recordId, pending }) {
+  const { t } = useTranslation();
   const [photos, setPhotos] = useState([]);
   const [lightboxIndex, setLightboxIndex] = useState(null);
 
@@ -47,7 +47,7 @@ export default function PhotoStrip({ recordId, pending }) {
 
   return (
     <div className="photo-strip">
-      {pending && <span className="pending-badge">⏳ pending sync · รอซิงค์</span>}
+      {pending && <span className="pending-badge">{t('common.photos.pendingSync')}</span>}
       {photos.map((p, i) => (
         <button key={p.id} type="button" className="photo-strip-thumb" onClick={() => setLightboxIndex(i)}>
           <img src={p._localUrl ?? photoUrl(p.storage_path)} alt="" />
@@ -66,6 +66,7 @@ export default function PhotoStrip({ recordId, pending }) {
 }
 
 function Lightbox({ photos, index, onChangeIndex, onClose }) {
+  const { t } = useTranslation();
   const photo = photos[index];
   const touchX = useRef(null);
 
@@ -107,7 +108,7 @@ function Lightbox({ photos, index, onChangeIndex, onClose }) {
             onClick={() => onChangeIndex((index + 1) % photos.length)}>›</button>
         )}
         <div className="lightbox-caption">
-          {typeLabel(photo.photo_type)} · {photo.created_at ? new Date(photo.created_at).toLocaleString() : '—'} · {photo.uploader_email ?? '—'}
+          {PHOTO_TYPE_KEY[photo.photo_type] ? t(PHOTO_TYPE_KEY[photo.photo_type]) : photo.photo_type} · {photo.created_at ? new Date(photo.created_at).toLocaleString() : '—'} · {photo.uploader_email ?? '—'}
         </div>
       </div>
     </div>

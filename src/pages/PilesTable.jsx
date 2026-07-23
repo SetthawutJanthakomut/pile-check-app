@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 import DataTable from '../components/DataTable';
 import { num } from '../lib/format';
@@ -6,27 +7,30 @@ import { CSV_COLUMNS, parseCsv, exportPilesToCsv } from '../lib/pilesCsv';
 import { useAutoRefresh } from '../lib/useAutoRefresh';
 import { useDataRefresh } from '../lib/dataRefresh';
 
-const COLUMNS = [
-  { key: 'pile_no', label: 'Pile No. · เลขเข็ม', type: 'text', width: 100 },
-  { key: 'zone', label: 'Zone · โซน', type: 'combo', width: 110 },
-  { key: 'pile_size', label: 'Size · ขนาด', type: 'text', width: 110 },
-  { key: 'dia_mm', label: 'Dia (mm) · เส้นผ่านศูนย์กลาง', type: 'number', decimals: 1, width: 90 },
-  { key: 'pile_top_level', label: 'Top Level · ระดับหัวเข็ม', type: 'number' },
-  { key: 'sea_bed_level', label: 'Seabed Level · ระดับท้องทะเล', type: 'number' },
-  { key: 'pile_toe_level', label: 'Toe Level · ระดับปลายเข็ม', type: 'number' },
-  { key: 'length_m', label: 'Length (m) · ความยาว', type: 'number' },
-  { key: 'incline', label: 'Incline · ความเอียง', type: 'text', width: 120 },
-  { key: 'coordinate_pn', label: 'PN · พิกัด N', type: 'number' },
-  { key: 'coordinate_pe', label: 'PE · พิกัด E', type: 'number' },
-  { key: 'coating_length_m', label: 'Coating (m) · ความยาวเคลือบ', type: 'number' },
-  { key: 'batter_bearing_deg', label: 'Batter Az (°) · ทิศเอียง', type: 'number', decimals: 2 },
-  { key: 'note', label: 'Note · หมายเหตุ', type: 'text', width: 160 },
-];
+function getColumns(t) {
+  return [
+    { key: 'pile_no', label: t('designPiles.col.pileNo'), type: 'text', width: 100 },
+    { key: 'zone', label: t('designPiles.col.zone'), type: 'combo', width: 110 },
+    { key: 'pile_size', label: t('designPiles.col.pileSize'), type: 'text', width: 110 },
+    { key: 'dia_mm', label: t('designPiles.col.diaMm'), type: 'number', decimals: 1, width: 90 },
+    { key: 'pile_top_level', label: t('designPiles.col.pileTopLevel'), type: 'number' },
+    { key: 'sea_bed_level', label: t('designPiles.col.seaBedLevel'), type: 'number' },
+    { key: 'pile_toe_level', label: t('designPiles.col.pileToeLevel'), type: 'number' },
+    { key: 'length_m', label: t('designPiles.col.lengthM'), type: 'number' },
+    { key: 'incline', label: t('designPiles.col.incline'), type: 'text', width: 120 },
+    { key: 'coordinate_pn', label: t('designPiles.col.coordinatePn'), type: 'number' },
+    { key: 'coordinate_pe', label: t('designPiles.col.coordinatePe'), type: 'number' },
+    { key: 'coating_length_m', label: t('designPiles.col.coatingLengthM'), type: 'number' },
+    { key: 'batter_bearing_deg', label: t('designPiles.col.batterBearingDeg'), type: 'number', decimals: 2 },
+    { key: 'note', label: t('designPiles.col.note'), type: 'text', width: 160 },
+  ];
+}
 
 const UNASSIGNED = '__unassigned__';
 const ALL_ZONES = '__all__';
 
 export default function PilesTable({ role }) {
+  const { t } = useTranslation();
   const canWrite = role === 'admin';
   const [rows, setRows] = useState([]);
   const [toast, setToast] = useState(null);
@@ -46,8 +50,8 @@ export default function PilesTable({ role }) {
 
   const columns = useMemo(() => {
     const zoneOptions = [...new Set(rows.map((r) => r.zone).filter(Boolean))].sort();
-    return COLUMNS.map((c) => (c.key === 'zone' ? { ...c, options: zoneOptions } : c));
-  }, [rows]);
+    return getColumns(t).map((c) => (c.key === 'zone' ? { ...c, options: zoneOptions } : c));
+  }, [rows, t]);
 
   const zones = useMemo(() => {
     const set = new Set();
@@ -86,22 +90,22 @@ export default function PilesTable({ role }) {
   }
 
   async function handleDelete(row) {
-    if (!window.confirm(`Delete pile ${row.pile_no}? / ลบเข็ม ${row.pile_no}?`)) return;
+    if (!window.confirm(t('designPiles.confirmDelete', { pileNo: row.pile_no }))) return;
     const { data, error } = await supabase.from('piles').delete().eq('id', row.id).select();
     if (error) {
       if (error.code === '23503') {
-        flashToast({ type: 'err', msg: 'This pile has saved records and cannot be deleted · เข็มนี้มีบันทึกแล้ว ไม่สามารถลบได้' });
+        flashToast({ type: 'err', msg: t('designPiles.hasRecordsCannotDelete') });
       } else {
         flashToast({ type: 'err', msg: error.message });
       }
       return;
     }
     if (!data || data.length === 0) {
-      flashToast({ type: 'err', msg: 'Can only delete piles you created · ลบได้เฉพาะเข็มที่คุณสร้างเท่านั้น' });
+      flashToast({ type: 'err', msg: t('designPiles.onlyOwnDelete') });
       return;
     }
     setRows((rs) => rs.filter((r) => r.id !== row.id));
-    flashToast({ type: 'ok', msg: `Deleted ${row.pile_no} · ลบ ${row.pile_no} แล้ว` });
+    flashToast({ type: 'ok', msg: t('designPiles.deletedToast', { pileNo: row.pile_no }) });
   }
 
   async function handleImport(e) {
@@ -109,11 +113,11 @@ export default function PilesTable({ role }) {
     if (!file) return;
     const text = await file.text();
     const table = parseCsv(text);
-    if (table.length < 2) { setImportMsg('Empty file · ไฟล์ว่างเปล่า'); e.target.value = ''; return; }
+    if (table.length < 2) { setImportMsg(t('designPiles.emptyFileMsg')); e.target.value = ''; return; }
 
     const headers = table[0].map((h) => h.trim().toLowerCase().replace(/\s+/g, '_'));
     const colKeys = new Set(CSV_COLUMNS);
-    const colByKey = Object.fromEntries(COLUMNS.map((c) => [c.key, c]));
+    const colByKey = Object.fromEntries(getColumns(t).map((c) => [c.key, c]));
 
     const parsed = table.slice(1).map((cells) => {
       const obj = {};
@@ -131,7 +135,7 @@ export default function PilesTable({ role }) {
     const skipped = parsed.length - toInsert.length;
 
     if (toInsert.length === 0) {
-      setImportMsg(`0 inserted, ${skipped} skipped · เพิ่ม 0 ข้าม ${skipped} แถว`);
+      setImportMsg(t('designPiles.importResultMsg', { n: 0, skipped }));
       e.target.value = '';
       return;
     }
@@ -140,36 +144,36 @@ export default function PilesTable({ role }) {
     const { data, error } = await supabase.from('piles').insert(toInsert).select();
     setImporting(false);
     e.target.value = '';
-    if (error) { setImportMsg(`Import failed · นำเข้าไม่สำเร็จ: ${error.message}`); return; }
+    if (error) { setImportMsg(`${t('designPiles.importFailedMsg')}: ${error.message}`); return; }
     setRows((rs) => [...rs, ...data].sort((a, b) => a.pile_no.localeCompare(b.pile_no)));
-    setImportMsg(`${data.length} inserted, ${skipped} skipped · เพิ่ม ${data.length} ข้าม ${skipped} แถว`);
+    setImportMsg(t('designPiles.importResultMsg', { n: data.length, skipped }));
   }
 
   return (
     <div className="page-wide">
       <div className="page-toolbar">
-        <h1>Design Piles · เข็มออกแบบ</h1>
-        {canWrite && <button className="btn-secondary" onClick={addRow}>+ Add row · เพิ่มแถว</button>}
+        <h1>{t('designPiles.pageTitle')}</h1>
+        {canWrite && <button className="btn-secondary" onClick={addRow}>{t('designPiles.addRowBtn')}</button>}
         {canWrite && (
           <button className="btn-secondary" disabled={importing} onClick={() => fileRef.current?.click()}>
-            {importing ? 'Importing…' : 'Import CSV · นำเข้า CSV'}
+            {importing ? t('designPiles.importingBtn') : t('designPiles.importCsvBtn')}
           </button>
         )}
         {canWrite && <input ref={fileRef} type="file" accept=".csv" hidden onChange={handleImport} />}
         <button className="btn-secondary" disabled={!filteredRows.length} onClick={() => exportPilesToCsv(filteredRows)}>
-          Export CSV · ส่งออก CSV
+          {t('designPiles.exportCsvBtn')}
         </button>
         {importMsg && <div className="import-msg">{importMsg}</div>}
       </div>
       {zones.length > 0 && (
         <div className="zone-filter">
-          <span className="zone-filter-label">Zone · โซน</span>
+          <span className="zone-filter-label">{t('designPiles.zoneLabel')}</span>
           <button
             type="button"
             className={`zone-pill${selectedZone === ALL_ZONES ? ' active' : ''}`}
             onClick={() => setSelectedZone(ALL_ZONES)}
           >
-            All · ทั้งหมด
+            {t('designPiles.zoneAll')}
           </button>
           {zones.map((z) => (
             <button
@@ -178,20 +182,20 @@ export default function PilesTable({ role }) {
               className={`zone-pill${selectedZone === z ? ' active' : ''}`}
               onClick={() => setSelectedZone(z)}
             >
-              {z === UNASSIGNED ? '— · ไม่ระบุ' : z}
+              {z === UNASSIGNED ? t('designPiles.zoneUnassigned') : z}
             </button>
           ))}
         </div>
       )}
-      {loading ? <p className="hint">Loading… · กำลังโหลด</p> : (
+      {loading ? <p className="hint">{t('plan.loading')}</p> : (
         <DataTable
           columns={columns}
           rows={filteredRows}
           onSave={handleSave}
           readOnly={!canWrite}
-          actionsLabel={canWrite ? 'Delete · ลบ' : undefined}
+          actionsLabel={canWrite ? t('designPiles.deleteBtn') : undefined}
           renderRowActions={canWrite ? (row) => (
-            <button className="link danger" onClick={() => handleDelete(row)}>Delete · ลบ</button>
+            <button className="link danger" onClick={() => handleDelete(row)}>{t('designPiles.deleteBtn')}</button>
           ) : undefined}
         />
       )}

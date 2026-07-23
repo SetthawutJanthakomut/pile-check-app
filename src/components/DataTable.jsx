@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { fmt, verdictClass } from '../lib/format';
 
 const MOBILE_FREEZE_CAP_RATIO = 0.45;
@@ -34,11 +35,12 @@ export function useFrozenColumns(storageKey, defaultKeys) {
  * candidates: [{ key, label }] in table order.
  */
 export function FreezeColumnsMenu({ candidates, frozenKeys, onToggle, onReset }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   return (
     <div className="freeze-menu">
       <button type="button" className="btn-secondary" onClick={() => setOpen((o) => !o)}>
-        Columns · คอลัมน์
+        {t('common.dataTable.columnsBtn')}
       </button>
       {open && (
         <>
@@ -48,11 +50,11 @@ export function FreezeColumnsMenu({ candidates, frozenKeys, onToggle, onReset })
               <label key={c.key} className="freeze-menu-row">
                 <input type="checkbox" checked={frozenKeys.includes(c.key)} onChange={() => onToggle(c.key)} />
                 <span>{c.label}</span>
-                <span className="freeze-menu-hint">Freeze · ตรึง</span>
+                <span className="freeze-menu-hint">{t('common.dataTable.freezeHint')}</span>
               </label>
             ))}
             <button type="button" className="link" onClick={() => { onReset(); setOpen(false); }}>
-              Reset · ค่าเริ่มต้น
+              {t('common.dataTable.resetBtn')}
             </button>
           </div>
         </>
@@ -79,6 +81,7 @@ export function FreezeColumnsMenu({ candidates, frozenKeys, onToggle, onReset })
  *             viewport width; the rest fall back to unfrozen.
  */
 export default function DataTable({ columns, rows, onSave, renderRowActions, actionsLabel, readOnly = false, frozenKeys = [], rowClassName }) {
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(null); // { rowId, key }
   const [editValue, setEditValue] = useState('');
   const [overrides, setOverrides] = useState({}); // `${rowId}:${key}` -> optimistic value
@@ -175,7 +178,7 @@ export default function DataTable({ columns, rows, onSave, renderRowActions, act
         delete n[ck];
         return n;
       });
-      setToast({ type: 'err', msg: err?.message || 'Save failed · บันทึกไม่สำเร็จ' });
+      setToast({ type: 'err', msg: err?.message || t('common.dataTable.saveFailed') });
       setTimeout(() => setToast(null), 4000);
     } finally {
       setSavingCell((c) => (c === ck ? null : c));
@@ -235,10 +238,11 @@ export default function DataTable({ columns, rows, onSave, renderRowActions, act
                 const isNum = col.type === 'number' || (col.type === 'readonly' && typeof value === 'number');
                 const isEditing = editing && editing.rowId === row.id && editing.key === col.key;
                 const fp = frozenProps(col.key);
+                const vc = col.verdict ? verdictClass(value) : '';
 
                 if (col.render) {
                   return (
-                    <td key={col.key} className={`${isNum ? 'mono' : ''} ${fp.className}`.trim()} style={fp.style}>
+                    <td key={col.key} className={`${isNum ? 'mono' : ''} ${vc ? `check-${vc}` : ''} ${fp.className}`.trim()} style={fp.style}>
                       {col.render(value, row)}
                     </td>
                   );
@@ -265,7 +269,6 @@ export default function DataTable({ columns, rows, onSave, renderRowActions, act
                 }
 
                 if (col.type === 'readonly') {
-                  const vc = col.verdict ? verdictClass(value) : '';
                   return (
                     <td key={col.key} className={`${isNum ? 'mono' : ''} ${vc ? `check-${vc}` : ''} ${fp.className}`.trim()} style={fp.style}>
                       {isNum ? fmt(value, col.decimals ?? 3) : (value ?? '—')}

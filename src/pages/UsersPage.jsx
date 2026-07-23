@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 
 const ROLES = ['viewer', 'recorder', 'admin'];
+const ROLE_KEY = { admin: 'users.role.admin', recorder: 'users.role.recorder', viewer: 'users.role.viewer' };
+const STATUS_KEY = { pending: 'users.status.pending', approved: 'users.status.approved' };
 
 export default function UsersPage({ session }) {
+  const { t } = useTranslation();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
@@ -47,18 +51,18 @@ export default function UsersPage({ session }) {
   return (
     <div className="page-wide">
       <div className="page-toolbar">
-        <h1>Users · จัดการผู้ใช้</h1>
+        <h1>{t('users.pageTitle')}</h1>
       </div>
-      {loading ? <p className="hint">Loading… · กำลังโหลด</p> : (
+      {loading ? <p className="hint">{t('users.loadingLabel')}</p> : (
         <div className="table-wrap">
           <table className="data-table mono">
             <thead>
               <tr>
-                <th>Email</th>
-                <th>Role · บทบาท</th>
-                <th>Status · สถานะ</th>
-                <th>Created · สร้างเมื่อ</th>
-                <th className="dt-actions-head">Actions · การกระทำ</th>
+                <th>{t('users.col.email')}</th>
+                <th>{t('users.col.role')}</th>
+                <th>{t('users.col.status')}</th>
+                <th>{t('users.col.created')}</th>
+                <th className="dt-actions-head">{t('users.col.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -66,23 +70,23 @@ export default function UsersPage({ session }) {
                 const isSelf = r.id === myId;
                 return (
                   <tr key={r.id}>
-                    <td>{r.email}{isSelf ? ' (you)' : ''}</td>
+                    <td>{r.email}{isSelf ? ` ${t('users.youSuffix')}` : ''}</td>
                     <td>
                       <select
                         value={r.role}
                         disabled={isSelf}
                         onChange={(e) => setRole(r.id, e.target.value)}
                       >
-                        {ROLES.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                        {ROLES.map((opt) => <option key={opt} value={opt}>{t(ROLE_KEY[opt])}</option>)}
                       </select>
                     </td>
-                    <td className={r.status === 'pending' ? 'check-bad' : 'check-ok'}>{r.status}</td>
+                    <td className={r.status === 'pending' ? 'check-bad' : 'check-ok'}>{STATUS_KEY[r.status] ? t(STATUS_KEY[r.status]) : r.status}</td>
                     <td>{r.created_at ? new Date(r.created_at).toLocaleString() : '—'}</td>
                     <td className="dt-actions-cell">
                       {r.status === 'pending' ? (
-                        <button className="link" onClick={() => setStatus(r.id, 'approved')}>Approve · อนุมัติ</button>
+                        <button className="link" onClick={() => setStatus(r.id, 'approved')}>{t('users.approveBtn')}</button>
                       ) : (
-                        !isSelf && <button className="link danger" onClick={() => setStatus(r.id, 'pending')}>Revoke · ระงับ</button>
+                        !isSelf && <button className="link danger" onClick={() => setStatus(r.id, 'pending')}>{t('users.revokeBtn')}</button>
                       )}
                     </td>
                   </tr>

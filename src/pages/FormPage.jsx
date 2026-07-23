@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 import { localdb, replaceAll } from '../lib/localdb';
 import { queueRecord, queuePhotos, pushOne, isNetworkError } from '../lib/sync';
 import { computeAll, bsCheck, parseIncline, crossCheckDiff } from '../lib/calculations';
 import { compressPhoto, uploadPhoto, deletePhoto, fetchPhotos, photoUrl, PHOTO_TYPES } from '../lib/photos';
+import { BOOL_KEY } from '../lib/statusLabels';
 import ResultReadout from '../components/ResultReadout';
 import SearchSelect from '../components/SearchSelect';
 
@@ -14,10 +16,10 @@ const flipSign = (s) => (s === '' || s == null ? s : (s.startsWith('-') ? s.slic
 const EMPTY_PT = { n: '', e: '', el: '' };
 const NEW_STN = '__new__';
 const ALL_ZONES = '__all__';
-const STAGE_BANNER = { before: 'Before driving · ก่อนตอก', after: 'After driving · หลังตอก' };
-const STN_TRAILING_OPTION = { value: NEW_STN, label: '+ Add new station · เพิ่มจุดใหม่', action: true };
+const STAGE_KEY = { before: 'common.stage.before', after: 'common.stage.after' };
 
 export default function FormPage({ session, role, active, editRecord, onCancelEdit, onEditSaved }) {
+  const { t } = useTranslation();
   const canSave = role === 'admin' || role === 'recorder';
   const [piles, setPiles] = useState([]);
   const [benchmarks, setBenchmarks] = useState([]);
@@ -179,7 +181,7 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
         const blob = await compressPhoto(file);
         setNewPhotos((ps) => [...ps, { tempId: crypto.randomUUID(), blob, previewUrl: URL.createObjectURL(blob), photoType: 'pile' }]);
       } catch (err) {
-        setToast({ type: 'err', msg: `Photo failed · รูปไม่สำเร็จ: ${err.message}` });
+        setToast({ type: 'err', msg: `${t('form.photoFailedToast')}: ${err.message}` });
         setTimeout(() => setToast(null), 4000);
       }
     }
@@ -237,6 +239,7 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
   }
   const stnOptions = useMemo(() => benchmarks.filter((b) => b.type === 'STN').map((b) => ({ value: b.id, label: b.name })), [benchmarks]);
   const bsOptions = useMemo(() => benchmarks.map((b) => ({ value: b.id, label: b.name })), [benchmarks]);
+  const stnTrailingOption = { value: NEW_STN, label: t('form.addNewStationOption'), action: true };
 
   const stnMatch = stnSelect && stnSelect !== NEW_STN
     ? benchmarks.find((b) => b.id === stnSelect) ?? null
@@ -253,15 +256,15 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
   // Fields required before Save is enabled. Point 3, Note, BS measured N/E,
   // and Measured seabed are intentionally excluded — they never block save.
   const missingRequired = useMemo(() => [
-    { empty: !pileId, en: 'Pile No.', th: 'เลขเข็ม' },
-    { empty: !stationSelected, en: 'Station', th: 'จุดตั้งกล้อง' },
-    { empty: !stage, en: 'Stage', th: 'ช่วง' },
-    { empty: !p1.n, en: 'Point 1 Northing', th: 'พิกัด N Point 1' },
-    { empty: !p1.e, en: 'Point 1 Easting', th: 'พิกัด E Point 1' },
-    { empty: !p1.el, en: 'Point 1 Elevation', th: 'ระดับ Point 1' },
-    { empty: !p2.n, en: 'Point 2 Northing', th: 'พิกัด N Point 2' },
-    { empty: !p2.e, en: 'Point 2 Easting', th: 'พิกัด E Point 2' },
-    { empty: !p2.el, en: 'Point 2 Elevation', th: 'ระดับ Point 2' },
+    { empty: !pileId, key: 'form.field.pileNo' },
+    { empty: !stationSelected, key: 'form.field.station' },
+    { empty: !stage, key: 'form.field.stage' },
+    { empty: !p1.n, key: 'form.field.p1Northing' },
+    { empty: !p1.e, key: 'form.field.p1Easting' },
+    { empty: !p1.el, key: 'form.field.p1Elevation' },
+    { empty: !p2.n, key: 'form.field.p2Northing' },
+    { empty: !p2.e, key: 'form.field.p2Easting' },
+    { empty: !p2.el, key: 'form.field.p2Elevation' },
   ].filter((f) => f.empty), [pileId, stationSelected, stage, p1, p2]);
 
   const bsResult = useMemo(() => {
@@ -328,7 +331,7 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
     if (!worst) return { proceed: true, share };
 
     if (worst.diff <= tol.crossCheckM) {
-      return { proceed: true, share, matchNote: `✓ matches existing survey (diff ${fmt(worst.diff, 3)} m)` };
+      return { proceed: true, share, matchNote: t('form.matchNoteToast', { diff: fmt(worst.diff, 3) }) };
     }
     const choice = await askMismatch({ diff: worst.diff, tolM: tol.crossCheckM, surveyor: worst.surveyor, date: worst.date });
     if (choice === 'cancel') return { proceed: false };
@@ -342,11 +345,10 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
     if (saveBlocked) {
       setAttemptedSave(true);
       if (missingRequired.length > 0) {
-        const enList = missingRequired.map((f) => f.en).join(', ');
-        const thList = missingRequired.map((f) => f.th).join(', ');
-        setToast({ type: 'err', msg: `Please complete: ${enList} · กรุณากรอก: ${thList}` });
+        const list = missingRequired.map((f) => t(f.key)).join(', ');
+        setToast({ type: 'err', msg: t('form.missingFieldsToast', { list }) });
       } else {
-        setToast({ type: 'err', msg: 'Cannot compute results yet · ยังคำนวณผลไม่ได้ในขณะนี้' });
+        setToast({ type: 'err', msg: t('form.cannotComputeToast') });
       }
       setTimeout(() => setToast(null), 5000);
       return;
@@ -407,8 +409,8 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
 
     setToast({
       type: 'ok',
-      msg: `Record updated · บันทึกการแก้ไขแล้ว${cc.matchNote ? ' · ' + cc.matchNote : ''}`
-        + (photoFailures.length ? ` · ⚠ ${photoFailures.length} photo(s) failed · รูปไม่สำเร็จ ${photoFailures.length} รูป` : ''),
+      msg: t('form.recordUpdatedToast') + (cc.matchNote ? ' · ' + cc.matchNote : '')
+        + (photoFailures.length ? ` · ${t('form.photoFailuresSuffix', { count: photoFailures.length })}` : ''),
     });
     setTimeout(() => setToast(null), 4000);
     resetToNewEntry();
@@ -455,8 +457,8 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
 
     // Photos queue alongside the record itself (keyed to its client uuid) and
     // upload once the record has synced — see sync.js's syncPendingPhotos.
-    const offlineMsg = 'Saved offline · บันทึกออฟไลน์ — will sync · จะซิงค์เมื่อมีสัญญาณ'
-      + (newPhotos.length ? ` · ${newPhotos.length} photo(s) queued · รูปรอซิงค์ ${newPhotos.length} รูป` : '');
+    const offlineMsg = `${t('form.savedOfflineToast')} — ${t('form.willSyncSuffix')}`
+      + (newPhotos.length ? ` · ${t('form.photosQueuedSuffix', { count: newPhotos.length })}` : '');
 
     async function queueOffline() {
       await queueRecord(item);
@@ -487,7 +489,7 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
     }
 
     const photoFailures = newPhotos.length ? await syncPhotoChanges(item.uuid) : [];
-    finishSave(`Pile ${pile.pile_no} saved${cc.share ? ' · shared to team' : ' · private draft'}${item.newStation ? ' · new station created · สร้างหมุดใหม่' : ''} · ${new Date(item.record.measured_time).toLocaleString()}${cc.matchNote ? ' · ' + cc.matchNote : ''}${photoFailures.length ? ` · ⚠ ${photoFailures.length} photo(s) failed · รูปไม่สำเร็จ ${photoFailures.length} รูป` : ''}`);
+    finishSave(`${t('form.pileSavedToast', { pileNo: pile.pile_no })}${cc.share ? ' · ' + t('form.sharedToTeamSuffix') : ' · ' + t('form.privateDraftSuffix')}${item.newStation ? ' · ' + t('form.newStationCreatedSuffix') : ''} · ${new Date(item.record.measured_time).toLocaleString()}${cc.matchNote ? ' · ' + cc.matchNote : ''}${photoFailures.length ? ` · ${t('form.photoFailuresSuffix', { count: photoFailures.length })}` : ''}`);
   }
 
   const inc = pile ? parseIncline(pile.incline) : null;
@@ -496,27 +498,27 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
     <div className="page">
       {offline && (
         <section className="card offline-banner">
-          Offline · ออฟไลน์ — using cached data · ใช้ข้อมูลล่าสุดในเครื่อง
+          {t('form.offlineUsingCache')}
         </section>
       )}
       {editRecord && (
         <section className="card edit-banner">
-          <strong>Editing record · {pile?.pile_no ?? '—'} · {STAGE_BANNER[stage] ?? stage ?? '—'}</strong>
-          <button className="link" onClick={cancelEdit}>Cancel edit · ยกเลิก</button>
+          <strong>{t('form.editingRecordPrefix')} · {pile?.pile_no ?? '—'} · {STAGE_KEY[stage] ? t(STAGE_KEY[stage]) : (stage ?? '—')}</strong>
+          <button className="link" onClick={cancelEdit}>{t('form.cancelEdit')}</button>
         </section>
       )}
-      <p className="hint"><span className="req-star">*</span> จำเป็น · required</p>
+      <p className="hint"><span className="req-star">*</span> {t('form.requiredHint')}</p>
 
       {/* ---------- setup ---------- */}
       <section className="card">
-        <h2 className="card-title">Pile &amp; station · เข็มและจุดตั้งกล้อง</h2>
+        <h2 className="card-title">{t('form.cardPileStation')}</h2>
         <div className="field">
-          <span>Pile No. <span className="req-star">*</span></span>
+          <span>{t('form.pileNoLabel')} <span className="req-star">*</span></span>
           {pileZones.length > 0 && (
             <div className="zone-filter">
-              <span className="zone-filter-label">Zone · โซน</span>
+              <span className="zone-filter-label">{t('form.zoneLabel')}</span>
               <button type="button" className={`zone-pill${pileZone === ALL_ZONES ? ' active' : ''}`} onClick={() => selectPileZone(ALL_ZONES)}>
-                All · ทั้งหมด
+                {t('form.zoneAll')}
               </button>
               {pileZones.map((z) => (
                 <button key={z} type="button" className={`zone-pill${pileZone === z ? ' active' : ''}`} onClick={() => selectPileZone(z)}>
@@ -529,7 +531,7 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
             options={pileOptions}
             value={pileId}
             onChange={setPileId}
-            placeholder="— select pile — · ค้นหาเลขเข็ม"
+            placeholder={t('form.pileSelectPlaceholder')}
             error={attemptedSave && !pileId}
           />
         </div>
@@ -537,94 +539,94 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
           <div className="design-strip mono">
             <div><span>N</span>{fmt(pile.coordinate_pn)}</div>
             <div><span>E</span>{fmt(pile.coordinate_pe)}</div>
-            <div><span>Cut-off</span>{fmt(pile.pile_top_level)}</div>
+            <div><span>{t('form.designStripCutoff')}</span>{fmt(pile.pile_top_level)}</div>
             <div><span>Ø</span>{pile.dia_mm} mm</div>
           </div>
         )}
         <div className="field">
-          <span>Station (STN) <span className="req-star">*</span></span>
+          <span>{t('form.stationLabel')} <span className="req-star">*</span></span>
           <SearchSelect
             options={stnOptions}
             value={stnSelect}
             onChange={setStnSelect}
-            placeholder="— select station — · ค้นหาจุดตั้งกล้อง"
-            trailingOption={STN_TRAILING_OPTION}
+            placeholder={t('form.stationSelectPlaceholder')}
+            trailingOption={stnTrailingOption}
             error={attemptedSave && !stationSelected}
           />
         </div>
         {stnSelect === NEW_STN && (
           <label className="field">
-            <span>New station name · ชื่อจุดใหม่</span>
+            <span>{t('form.newStationNameLabel')}</span>
             <input
               value={stnName}
               onChange={(e) => setStnName(e.target.value)}
-              placeholder="Type new station name"
+              placeholder={t('form.newStationNamePlaceholder')}
             />
           </label>
         )}
         {stnIsNew && (
           <p className="hint">
             {canSave
-              ? 'New station — will be created on save · หมุดใหม่ จะถูกสร้างเมื่อบันทึก'
-              : 'Unknown station · ไม่พบหมุดนี้'}
+              ? t('form.newStationWillCreate')
+              : t('form.unknownStation')}
           </p>
         )}
       </section>
 
       {/* ---------- stage & note ---------- */}
       <section className="card">
-        <h2 className="card-title">Stage &amp; note · ช่วงและหมายเหตุ</h2>
+        <h2 className="card-title">{t('form.cardStageNote')}</h2>
         <label className="field">
-          <span>Stage · ช่วง <span className="req-star">*</span></span>
+          <span>{t('form.stageLabel')} <span className="req-star">*</span></span>
           <select
             value={stage}
             onChange={(e) => setStage(e.target.value)}
             className={attemptedSave && !stage ? 'input-error' : undefined}
           >
-            <option value="">— select stage —</option>
-            <option value="before">Before driving · ก่อนตอก</option>
-            <option value="after">After driving · หลังตอก</option>
+            <option value="">{t('form.stageSelectPlaceholder')}</option>
+            <option value="before">{t('common.stage.before')}</option>
+            <option value="after">{t('common.stage.after')}</option>
           </select>
         </label>
         <label className="field">
-          <span>Note · หมายเหตุ</span>
-          <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional note · หมายเหตุ (ถ้ามี)" />
+          <span>{t('form.noteLabel')}</span>
+          <input value={note} onChange={(e) => setNote(e.target.value)} placeholder={t('form.notePlaceholder')} />
         </label>
       </section>
 
       {/* ---------- BS check ---------- */}
       <section className="card">
-        <h2 className="card-title">BS check · เช็คหมุดหลัง <em>shoot BS before piles</em></h2>
+        <h2 className="card-title">{t('form.cardBsCheck')} <em>{t('form.bsCheckHint')}</em></h2>
         <label className="field">
-          <span>Backsight</span>
+          <span>{t('form.backsightLabel')}</span>
           <SearchSelect
             options={bsOptions}
             value={bsId}
             onChange={setBsId}
-            placeholder="— select BS — · ค้นหาหมุด"
+            placeholder={t('form.bsSelectPlaceholder')}
           />
         </label>
         <div className="grid2">
-          <label className="field"><span>Measured N</span>
+          <label className="field"><span>{t('form.measuredNLabel')}</span>
             <input inputMode="decimal" value={bsN} onChange={(e) => setBsN(e.target.value)} placeholder="0.000" /></label>
-          <label className="field"><span>Measured E</span>
+          <label className="field"><span>{t('form.measuredELabel')}</span>
             <input inputMode="decimal" value={bsE} onChange={(e) => setBsE(e.target.value)} placeholder="0.000" /></label>
         </div>
         {bsResult && (
           <div className={`stamp ${bsResult.pass ? 'pass' : 'fail'}`}>
-            {bsResult.pass ? 'TRUE' : 'FALSE'} <small>diff {fmt(bsResult.diff, 4)} m{!bsResult.pass && ' — re-setup station'}</small>
+            {t(BOOL_KEY[bsResult.pass ? 'TRUE' : 'FALSE'])} <small>diff {fmt(bsResult.diff, 4)} m{!bsResult.pass && ` — ${t('form.bsReSetupHint')}`}</small>
           </div>
         )}
       </section>
 
       {/* ---------- points ---------- */}
-      <PointCard title="Point 1 · Top จุดสูงสุด" pt={p1} set={setP1} attemptedSave={attemptedSave} />
-      <PointCard title="Point 3 · Mid กลาง (cross-check, optional)" pt={p3} set={setP3} optional />
-      <PointCard title="Point 2 · Bottom จุดต่ำสุด" pt={p2} set={setP2} attemptedSave={attemptedSave} />
+      <PointCard title={t('form.point1Title')} pt={p1} set={setP1} attemptedSave={attemptedSave} />
+      <PointCard title={t('form.point3Title')} pt={p3} set={setP3} optional />
+      <PointCard title={t('form.point2Title')} pt={p2} set={setP2} attemptedSave={attemptedSave} />
 
       <section className="card">
-        <h2 className="card-title">Seabed re-survey · วัด seabed ใหม่ <em>blank = use design</em></h2>
-        <label className="field"><span>Measured seabed EL.</span>
+        <h2 className="card-title">{t('form.cardSeabed')} <em>{t('form.seabedHint')}</em></h2>
+        <label className="field"><span>{t('form.measuredSeabedLabel')}</span>
           <div className="num-wrap">
             <input inputMode="decimal" value={seabed} onChange={(e) => setSeabed(e.target.value)}
                    placeholder={pile?.sea_bed_level != null ? `design: ${pile.sea_bed_level}` : '0.000'} />
@@ -638,13 +640,13 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
 
       {/* ---------- photos ---------- */}
       <section className="card">
-        <h2 className="card-title">Photos · รูปถ่าย <em>{totalPhotoCount}/6</em></h2>
+        <h2 className="card-title">{t('form.cardPhotos')} <em>{totalPhotoCount}/6</em></h2>
         {canSave && (
           <div className="photo-add-row">
             <button type="button" className="btn-secondary" disabled={totalPhotoCount >= 6}
-              onClick={() => cameraInputRef.current?.click()}>📷 Take photo · ถ่ายรูป</button>
+              onClick={() => cameraInputRef.current?.click()}>{t('form.takePhotoBtn')}</button>
             <button type="button" className="btn-secondary" disabled={totalPhotoCount >= 6}
-              onClick={() => galleryInputRef.current?.click()}>🖼 Choose · เลือกรูป</button>
+              onClick={() => galleryInputRef.current?.click()}>{t('form.choosePhotoBtn')}</button>
             <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" hidden
               onChange={(e) => { addPhotoFiles(e.target.files); e.target.value = ''; }} />
             <input ref={galleryInputRef} type="file" accept="image/*" multiple hidden
@@ -684,14 +686,14 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
         <div className="savebar">
           <label className="share-toggle">
             <input type="checkbox" checked={share} onChange={(e) => setShare(e.target.checked)} />
-            <span>Share to team · แชร์ให้ทีม</span>
+            <span>{t('form.shareToTeamLabel')}</span>
           </label>
           <button
             className={`btn-save${saveBlocked ? ' btn-save-blocked' : ''}`}
             disabled={saving}
             onClick={attemptSave}
           >
-            {saving ? 'Saving…' : (editRecord ? 'Update record · บันทึกการแก้ไข' : 'Save record')}
+            {saving ? t('form.savingBtn') : (editRecord ? t('form.updateRecordBtn') : t('form.saveRecordBtn'))}
           </button>
         </div>
       )}
@@ -702,20 +704,19 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
         <div className="modal-backdrop" onClick={() => { mismatch.resolve('cancel'); setMismatch(null); }}>
           <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <div><h2>Cross-check mismatch · ข้อมูลไม่ตรงกัน</h2></div>
+              <div><h2>{t('form.crossCheckMismatchTitle')}</h2></div>
             </div>
             <p>
-              Does not match existing survey by {mismatch.surveyor} ({mismatch.date}) — diff {fmt(mismatch.diff, 3)} m &gt; {fmt(mismatch.tolM, 3)} m.
-              อาจพิมพ์ตัวเลขผิด ตรวจสอบก่อนบันทึก. Save anyway?
+              {t('form.crossCheckMismatchBody', { surveyor: mismatch.surveyor, date: mismatch.date, diff: fmt(mismatch.diff, 3), tol: fmt(mismatch.tolM, 3) })} {t('form.crossCheckSaveAnyway')}
             </p>
             <button className="btn-secondary" onClick={() => { setShare(true); mismatch.resolve('shared'); setMismatch(null); }}>
-              Save shared · บันทึกแบบแชร์
+              {t('form.saveSharedBtn')}
             </button>
             <button className="btn-secondary" onClick={() => { setShare(false); mismatch.resolve('private'); setMismatch(null); }}>
-              Save private · บันทึกส่วนตัว
+              {t('form.savePrivateBtn')}
             </button>
             <button className="link" onClick={() => { mismatch.resolve('cancel'); setMismatch(null); }}>
-              Cancel · กลับไปตรวจ
+              {t('form.cancelReviewBtn')}
             </button>
           </div>
         </div>
@@ -725,19 +726,20 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
 }
 
 function PointCard({ title, pt, set, optional = false, attemptedSave = false }) {
+  const { t } = useTranslation();
   const showError = (v) => (!optional && attemptedSave && !v ? 'input-error' : undefined);
   return (
     <section className="card">
       <h2 className="card-title">{title}</h2>
       <div className="grid3">
-        <label className="field"><span>Northing{!optional && <span className="req-star"> *</span>}</span>
+        <label className="field"><span>{t('form.northingLabel')}{!optional && <span className="req-star"> *</span>}</span>
           <input inputMode="decimal" className={showError(pt.n)} value={pt.n} onChange={(e) => set({ ...pt, n: e.target.value })} placeholder="0.0000" /></label>
-        <label className="field"><span>Easting{!optional && <span className="req-star"> *</span>}</span>
+        <label className="field"><span>{t('form.eastingLabel')}{!optional && <span className="req-star"> *</span>}</span>
           <input inputMode="decimal" className={showError(pt.e)} value={pt.e} onChange={(e) => set({ ...pt, e: e.target.value })} placeholder="0.0000" /></label>
-        <label className="field"><span>Elev.{!optional && <span className="req-star"> *</span>}</span>
+        <label className="field"><span>{t('form.elevationLabel')}{!optional && <span className="req-star"> *</span>}</span>
           <input inputMode="decimal" className={showError(pt.el)} value={pt.el} onChange={(e) => set({ ...pt, el: e.target.value })} placeholder="0.000" /></label>
       </div>
-      {optional && <p className="hint">เว้นว่างได้ / leave blank to skip cross-check</p>}
+      {optional && <p className="hint">{t('form.pointOptionalHint')}</p>}
     </section>
   );
 }

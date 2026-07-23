@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import ResultReadout from './ResultReadout';
 import PhotoStrip from './PhotoGallery';
 import { exportRecordsToExcel } from '../lib/exportExcel';
 import { fmt } from '../lib/format';
 import { crossCheckDiff } from '../lib/calculations';
+import { MOVED_KEY } from '../lib/statusLabels';
 import { effectivePrimary } from '../lib/primary';
 import { fetchPhotos } from '../lib/photos';
 import { fetchReportInputs } from '../reports/fetchReportData';
@@ -35,25 +37,27 @@ function crossCheckInfo(members) {
 // table row actions use, and the same onEditRecord/onDeleteRecord handlers
 // RecordsTable already wires up (which also close/adjust this modal).
 function CardActions({ record, session, role, onEditRecord, onDeleteRecord }) {
+  const { t } = useTranslation();
   const canEdit = canEditRecord(record, session, role);
   const canDelete = canDeleteRecord(record, session);
   if (!canEdit && !canDelete) return null;
   return (
     <div className="card-actions">
-      {canEdit && <button className="link" onClick={() => onEditRecord(record.id)}>Edit · แก้ไข</button>}
-      {canDelete && <button className="link danger" onClick={() => onDeleteRecord(record)}>Delete · ลบ</button>}
+      {canEdit && <button className="link" onClick={() => onEditRecord(record.id)}>{t('records.modal.editBtn')}</button>}
+      {canDelete && <button className="link danger" onClick={() => onDeleteRecord(record)}>{t('records.modal.deleteBtn')}</button>}
     </div>
   );
 }
 
 function CrossCheckBadge({ cc, tol }) {
+  const { t } = useTranslation();
   if (!cc || tol == null) return null;
   const pass = cc.maxDiff <= tol;
   return (
     <div className={`crosscheck-badge ${pass ? 'pass' : 'fail'}`}>
       {pass
-        ? `✓ surveys agree, max diff ${fmt(cc.maxDiff, 3)} m`
-        : `⚠ Surveys disagree — max diff ${fmt(cc.maxDiff, 3)} m > tolerance ${fmt(tol, 3)} m · ผลวัดไม่ตรงกัน อาจพิมพ์ตัวเลขผิด`}
+        ? t('records.modal.crossCheckPass', { diff: fmt(cc.maxDiff, 3) })
+        : t('records.modal.crossCheckFail', { diff: fmt(cc.maxDiff, 3), tol: fmt(tol, 3) })}
     </div>
   );
 }
@@ -62,11 +66,12 @@ function CrossCheckBadge({ cc, tol }) {
 // primary's ResultReadout so admins/recorders can inspect and re-designate
 // primary without leaving the modal.
 function OtherSurveys({ members, primary, tol, canSetPrimary, onSetPrimary }) {
+  const { t } = useTranslation();
   const others = (members || []).filter((m) => m.id !== primary.id);
   if (others.length === 0) return null;
   return (
     <div className="card other-surveys">
-      <h4>Other surveys of this pile+stage · การวัดอื่นของเข็มนี้</h4>
+      <h4>{t('records.modal.otherSurveysTitle')}</h4>
       {others.map((m) => {
         const diff = crossCheckDiff(primary, m);
         return (
@@ -75,7 +80,7 @@ function OtherSurveys({ members, primary, tol, canSetPrimary, onSetPrimary }) {
             <span>N {fmt(m.asbuiltN)} E {fmt(m.asbuiltE)}</span>
             <span className={diff > tol ? 'diff-warn' : ''}>diff {fmt(diff, 3)} m</span>
             {canSetPrimary && (
-              <button className="link" onClick={() => onSetPrimary?.(m.id)}>Set as primary · ตั้งเป็นค่าหลัก</button>
+              <button className="link" onClick={() => onSetPrimary?.(m.id)}>{t('records.modal.setPrimaryBtn')}</button>
             )}
           </div>
         );
@@ -94,6 +99,7 @@ function OtherSurveys({ members, primary, tol, canSetPrimary, onSetPrimary }) {
 // `tolPositionM` is the live position tolerance — passed through to ResultReadout so its
 // OK/OVER verdict matches the current Settings value instead of the cached save-time one.
 export default function RecordDetailModal({ row, group, tolCrossCheckM, tolPositionM, columns, canSetPrimary, onSetPrimary, session, role, onEditRecord, onDeleteRecord, onClose }) {
+  const { t } = useTranslation();
   const [printing, setPrinting] = useState(null);
   const [printError, setPrintError] = useState(null);
   const [saving, setSaving] = useState(null);
@@ -168,14 +174,14 @@ export default function RecordDetailModal({ row, group, tolCrossCheckM, tolPosit
             </div>
             <div className="modal-header-actions">
               <CardActions record={primary} session={session} role={role} onEditRecord={onEditRecord} onDeleteRecord={onDeleteRecord} />
-              <button className="link" onClick={onClose}>Close · ปิด</button>
+              <button className="link" onClick={onClose}>{t('records.modal.closeBtn')}</button>
             </div>
           </div>
           <ResultReadout results={primary} p1El={primary.p1el} tol={tolPositionM != null ? { positionM: tolPositionM } : undefined} stage={primary.pile_stage} note={primary.note} />
           <PhotoStrip recordId={primary.id} pending={primary._pending} />
           <OtherSurveys members={stageGroup} primary={primary} tol={tolCrossCheckM} canSetPrimary={canSetPrimary} onSetPrimary={onSetPrimary} />
           <button className="btn-secondary" onClick={() => exportRecordsToExcel(columns, [primary])}>
-            Export this record · ส่งออกระเบียนนี้
+            {t('records.modal.exportRecordBtn')}
           </button>
           <label className="share-toggle">
             <input
@@ -184,13 +190,13 @@ export default function RecordDetailModal({ row, group, tolCrossCheckM, tolPosit
               disabled={!photoCounts[primary.id]}
               onChange={(e) => setAttachPhotos((m) => ({ ...m, [primary.id]: e.target.checked }))}
             />
-            <span>Attach photos (page 2) · แนบรูป (หน้า 2)</span>
+            <span>{t('records.modal.attachPhotosLabel')}</span>
           </label>
           <button className="btn-secondary" disabled={printing === primary.id} onClick={() => handlePrint(primary, null, cc, attachPhotos[primary.id])}>
-            {printing === primary.id ? 'Preparing… · กำลังเตรียม' : 'PDF report · รายงาน PDF'}
+            {printing === primary.id ? t('records.modal.preparingBtn') : t('records.modal.pdfReportBtn')}
           </button>
           <button className="btn-secondary" disabled={saving === primary.id} onClick={() => handleSaveImage(primary, null, cc)}>
-            {saving === primary.id ? 'Preparing… · กำลังเตรียม' : 'Save image · บันทึกรูป'}
+            {saving === primary.id ? t('records.modal.preparingBtn') : t('records.modal.saveImageBtn')}
           </button>
           {printError && <p className="form-err">{printError}</p>}
           {saveError && <p className="form-err">{saveError}</p>}
@@ -206,8 +212,8 @@ export default function RecordDetailModal({ row, group, tolCrossCheckM, tolPosit
   const moveN = afterPrimary.asbuiltN - beforePrimary.asbuiltN;
   const moveE = afterPrimary.asbuiltE - beforePrimary.asbuiltE;
   const moveTotal = Math.sqrt(moveN * moveN + moveE * moveE);
-  const dirN = moveN < 0 ? 'moved SOUTH · ขยับไปทางใต้' : 'moved NORTH · ขยับไปทางเหนือ';
-  const dirE = moveE < 0 ? 'moved WEST · ขยับไปทางตก' : 'moved EAST · ขยับไปทางออก';
+  const dirN = t(moveN < 0 ? MOVED_KEY['moved SOUTH'] : MOVED_KEY['moved NORTH']);
+  const dirE = t(moveE < 0 ? MOVED_KEY['moved WEST'] : MOVED_KEY['moved EAST']);
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -215,16 +221,16 @@ export default function RecordDetailModal({ row, group, tolCrossCheckM, tolPosit
         <div className="modal-header">
           <div>
             <h2>{beforePrimary.pile_no}</h2>
-            <p className="hint">Before + after driving · ก่อนและหลังตอก</p>
+            <p className="hint">{t('records.modal.beforeAfterSubtitle')}</p>
           </div>
-          <button className="link" onClick={onClose}>Close · ปิด</button>
+          <button className="link" onClick={onClose}>{t('records.modal.closeBtn')}</button>
         </div>
         <div className="card movement-summary">
-          <div className="stage-tag">Head moved during driving · หัวเข็มขยับตอนตอก</div>
+          <div className="stage-tag">{t('records.modal.headMovedTag')}</div>
           <div className="readout-grid">
-            <div><span>Move N</span>{fmt(moveN)} <b>{dirN}</b></div>
-            <div><span>Move E</span>{fmt(moveE)} <b>{dirE}</b></div>
-            <div><span>Move Total</span>{fmt(moveTotal)}</div>
+            <div><span>{t('records.modal.moveN')}</span>{fmt(moveN)} <b>{dirN}</b></div>
+            <div><span>{t('records.modal.moveE')}</span>{fmt(moveE)} <b>{dirE}</b></div>
+            <div><span>{t('records.modal.moveTotal')}</span>{fmt(moveTotal)}</div>
           </div>
         </div>
         <div className="modal-columns">
@@ -242,15 +248,15 @@ export default function RecordDetailModal({ row, group, tolCrossCheckM, tolPosit
                 disabled={!photoCounts[beforePrimary.id]}
                 onChange={(e) => setAttachPhotos((m) => ({ ...m, [beforePrimary.id]: e.target.checked }))}
               />
-              <span>Attach photos (page 2) · แนบรูป (หน้า 2)</span>
+              <span>{t('records.modal.attachPhotosLabel')}</span>
             </label>
             <button className="btn-secondary" disabled={printing === beforePrimary.id}
               onClick={() => handlePrint(beforePrimary, { asbuiltN: afterPrimary.asbuiltN, asbuiltE: afterPrimary.asbuiltE }, ccBefore, attachPhotos[beforePrimary.id])}>
-              {printing === beforePrimary.id ? 'Preparing… · กำลังเตรียม' : 'PDF report · รายงาน PDF'}
+              {printing === beforePrimary.id ? t('records.modal.preparingBtn') : t('records.modal.pdfReportBtn')}
             </button>
             <button className="btn-secondary" disabled={saving === beforePrimary.id}
               onClick={() => handleSaveImage(beforePrimary, { asbuiltN: afterPrimary.asbuiltN, asbuiltE: afterPrimary.asbuiltE }, ccBefore)}>
-              {saving === beforePrimary.id ? 'Preparing… · กำลังเตรียม' : 'Save image · บันทึกรูป'}
+              {saving === beforePrimary.id ? t('records.modal.preparingBtn') : t('records.modal.saveImageBtn')}
             </button>
           </div>
           <div className="card modal-column">
@@ -267,22 +273,22 @@ export default function RecordDetailModal({ row, group, tolCrossCheckM, tolPosit
                 disabled={!photoCounts[afterPrimary.id]}
                 onChange={(e) => setAttachPhotos((m) => ({ ...m, [afterPrimary.id]: e.target.checked }))}
               />
-              <span>Attach photos (page 2) · แนบรูป (หน้า 2)</span>
+              <span>{t('records.modal.attachPhotosLabel')}</span>
             </label>
             <button className="btn-secondary" disabled={printing === afterPrimary.id}
               onClick={() => handlePrint(afterPrimary, { asbuiltN: beforePrimary.asbuiltN, asbuiltE: beforePrimary.asbuiltE }, ccAfter, attachPhotos[afterPrimary.id])}>
-              {printing === afterPrimary.id ? 'Preparing… · กำลังเตรียม' : 'PDF report · รายงาน PDF'}
+              {printing === afterPrimary.id ? t('records.modal.preparingBtn') : t('records.modal.pdfReportBtn')}
             </button>
             <button className="btn-secondary" disabled={saving === afterPrimary.id}
               onClick={() => handleSaveImage(afterPrimary, { asbuiltN: beforePrimary.asbuiltN, asbuiltE: beforePrimary.asbuiltE }, ccAfter)}>
-              {saving === afterPrimary.id ? 'Preparing… · กำลังเตรียม' : 'Save image · บันทึกรูป'}
+              {saving === afterPrimary.id ? t('records.modal.preparingBtn') : t('records.modal.saveImageBtn')}
             </button>
           </div>
         </div>
         {printError && <p className="form-err">{printError}</p>}
         {saveError && <p className="form-err">{saveError}</p>}
         <button className="btn-secondary" onClick={() => exportRecordsToExcel(columns, [beforePrimary, afterPrimary])}>
-          Export both records · ส่งออกทั้งสองระเบียน
+          {t('records.modal.exportBothBtn')}
         </button>
       </div>
     </div>

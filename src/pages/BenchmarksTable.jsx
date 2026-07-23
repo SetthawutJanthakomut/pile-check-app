@@ -1,4 +1,5 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 import DataTable from '../components/DataTable';
 import { num } from '../lib/format';
@@ -6,17 +7,21 @@ import { CSV_COLUMNS, parseCsv, exportBenchmarksToCsv } from '../lib/benchmarksC
 import { useAutoRefresh } from '../lib/useAutoRefresh';
 import { useDataRefresh } from '../lib/dataRefresh';
 
-const COLUMNS = [
-  { key: 'name', label: 'Name · ชื่อหมุด', type: 'text', width: 120 },
-  { key: 'northing', label: 'Northing · พิกัด N', type: 'number' },
-  { key: 'easting', label: 'Easting · พิกัด E', type: 'number' },
-  { key: 'elevation', label: 'Elevation · ระดับ', type: 'number' },
-  { key: 'type', label: 'Type · ประเภท', type: 'select', options: ['BM', 'STN', 'TP'], width: 80 },
-  { key: 'active', label: 'Active · ใช้งาน', type: 'boolean', width: 70 },
-  { key: 'note', label: 'Note · หมายเหตุ', type: 'text', width: 180 },
-];
+function getColumns(t) {
+  return [
+    { key: 'name', label: t('benchmarks.col.name'), type: 'text', width: 120 },
+    { key: 'northing', label: t('benchmarks.col.northing'), type: 'number' },
+    { key: 'easting', label: t('benchmarks.col.easting'), type: 'number' },
+    { key: 'elevation', label: t('benchmarks.col.elevation'), type: 'number' },
+    { key: 'type', label: t('benchmarks.col.type'), type: 'select', options: ['BM', 'STN', 'TP'], width: 80 },
+    { key: 'active', label: t('benchmarks.col.active'), type: 'boolean', width: 70 },
+    { key: 'note', label: t('benchmarks.col.note'), type: 'text', width: 180 },
+  ];
+}
 
 export default function BenchmarksTable({ role }) {
+  const { t } = useTranslation();
+  const columns = useMemo(() => getColumns(t), [t]);
   const canWrite = role === 'admin';
   const [rows, setRows] = useState([]);
   const [toast, setToast] = useState(null);
@@ -56,22 +61,22 @@ export default function BenchmarksTable({ role }) {
   }
 
   async function handleDelete(row) {
-    if (!window.confirm(`Delete benchmark ${row.name}? / ลบหมุด ${row.name}?`)) return;
+    if (!window.confirm(t('benchmarks.confirmDelete', { name: row.name }))) return;
     const { data, error } = await supabase.from('benchmarks').delete().eq('id', row.id).select();
     if (error) {
       if (error.code === '23503') {
-        flashToast({ type: 'err', msg: 'This benchmark has saved records and cannot be deleted · หมุดนี้มีบันทึกแล้ว ไม่สามารถลบได้' });
+        flashToast({ type: 'err', msg: t('benchmarks.hasRecordsCannotDelete') });
       } else {
         flashToast({ type: 'err', msg: error.message });
       }
       return;
     }
     if (!data || data.length === 0) {
-      flashToast({ type: 'err', msg: 'Can only delete benchmarks you created · ลบได้เฉพาะหมุดที่คุณสร้างเท่านั้น' });
+      flashToast({ type: 'err', msg: t('benchmarks.onlyOwnDelete') });
       return;
     }
     setRows((rs) => rs.filter((r) => r.id !== row.id));
-    flashToast({ type: 'ok', msg: `Deleted ${row.name} · ลบ ${row.name} แล้ว` });
+    flashToast({ type: 'ok', msg: t('benchmarks.deletedToast', { name: row.name }) });
   }
 
   async function handleImport(e) {
@@ -79,11 +84,11 @@ export default function BenchmarksTable({ role }) {
     if (!file) return;
     const text = await file.text();
     const table = parseCsv(text);
-    if (table.length < 2) { setImportMsg('Empty file · ไฟล์ว่างเปล่า'); e.target.value = ''; return; }
+    if (table.length < 2) { setImportMsg(t('benchmarks.emptyFileMsg')); e.target.value = ''; return; }
 
     const headers = table[0].map((h) => h.trim().toLowerCase().replace(/\s+/g, '_'));
     const colKeys = new Set(CSV_COLUMNS);
-    const colByKey = Object.fromEntries(COLUMNS.map((c) => [c.key, c]));
+    const colByKey = Object.fromEntries(getColumns(t).map((c) => [c.key, c]));
 
     const parsed = table.slice(1).map((cells) => {
       const obj = {};
@@ -103,7 +108,7 @@ export default function BenchmarksTable({ role }) {
     const skipped = parsed.length - toInsert.length;
 
     if (toInsert.length === 0) {
-      setImportMsg(`0 inserted, ${skipped} skipped · เพิ่ม 0 ข้าม ${skipped} แถว`);
+      setImportMsg(t('benchmarks.importResultMsg', { n: 0, skipped }));
       e.target.value = '';
       return;
     }
@@ -112,36 +117,36 @@ export default function BenchmarksTable({ role }) {
     const { data, error } = await supabase.from('benchmarks').insert(toInsert).select();
     setImporting(false);
     e.target.value = '';
-    if (error) { setImportMsg(`Import failed · นำเข้าไม่สำเร็จ: ${error.message}`); return; }
+    if (error) { setImportMsg(`${t('benchmarks.importFailedMsg')}: ${error.message}`); return; }
     setRows((rs) => [...rs, ...data].sort((a, b) => a.name.localeCompare(b.name)));
-    setImportMsg(`${data.length} inserted, ${skipped} skipped · เพิ่ม ${data.length} ข้าม ${skipped} แถว`);
+    setImportMsg(t('benchmarks.importResultMsg', { n: data.length, skipped }));
   }
 
   return (
     <div className="page-wide">
       <div className="page-toolbar">
-        <h1>Benchmarks · หมุดอ้างอิง</h1>
-        {canWrite && <button className="btn-secondary" onClick={addRow}>+ Add row · เพิ่มแถว</button>}
+        <h1>{t('benchmarks.pageTitle')}</h1>
+        {canWrite && <button className="btn-secondary" onClick={addRow}>{t('benchmarks.addRowBtn')}</button>}
         {canWrite && (
           <button className="btn-secondary" disabled={importing} onClick={() => fileRef.current?.click()}>
-            {importing ? 'Importing…' : 'Import CSV · นำเข้า CSV'}
+            {importing ? t('benchmarks.importingBtn') : t('benchmarks.importCsvBtn')}
           </button>
         )}
         {canWrite && <input ref={fileRef} type="file" accept=".csv" hidden onChange={handleImport} />}
         <button className="btn-secondary" disabled={!rows.length} onClick={() => exportBenchmarksToCsv(rows)}>
-          Export CSV · ส่งออก CSV
+          {t('benchmarks.exportCsvBtn')}
         </button>
         {importMsg && <div className="import-msg">{importMsg}</div>}
       </div>
-      {loading ? <p className="hint">Loading… · กำลังโหลด</p> : (
+      {loading ? <p className="hint">{t('plan.loading')}</p> : (
         <DataTable
-          columns={COLUMNS}
+          columns={columns}
           rows={rows}
           onSave={handleSave}
           readOnly={!canWrite}
-          actionsLabel={canWrite ? 'Delete · ลบ' : undefined}
+          actionsLabel={canWrite ? t('benchmarks.deleteBtn') : undefined}
           renderRowActions={canWrite ? (row) => (
-            <button className="link danger" onClick={() => handleDelete(row)}>Delete · ลบ</button>
+            <button className="link danger" onClick={() => handleDelete(row)}>{t('benchmarks.deleteBtn')}</button>
           ) : undefined}
         />
       )}

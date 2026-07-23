@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { supabase } from './supabase';
 
 // Same permission rules as the Records table row actions: Edit requires
@@ -15,6 +16,8 @@ export function canDeleteRecord(row, session) {
 // Shared edit/delete handlers so the Records table and the detail modal
 // call the exact same logic instead of duplicating it.
 export function useRecordActions({ records, setRecords, onEdit, setToast, stageLabels = {} }) {
+  const { t } = useTranslation();
+
   function handleEdit(id) {
     const full = records.find((r) => r.id === id);
     if (full) onEdit?.(full);
@@ -22,7 +25,7 @@ export function useRecordActions({ records, setRecords, onEdit, setToast, stageL
 
   async function handleDelete(row) {
     const label = `${row.pile_no} (${stageLabels[row.pile_stage] ?? row.pile_stage})`;
-    if (!window.confirm(`Delete ${label}? · ลบระเบียน ${label}?`)) return false;
+    if (!window.confirm(t('records.confirmDelete', { label }))) return false;
     const { error } = await supabase.from('asbuilt_records').delete().eq('id', row.id);
     if (error) { setToast({ type: 'err', msg: error.message }); setTimeout(() => setToast(null), 4000); return false; }
     setRecords((rs) => rs.filter((r) => r.id !== row.id));
