@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { effectivePrimary } from '../lib/primary';
 import { crossCheckDiff, posCheckFor } from '../lib/calculations';
@@ -6,6 +6,8 @@ import { fmt } from '../lib/format';
 import RecordDetailModal from '../components/RecordDetailModal';
 import { COLUMNS } from './RecordsTable';
 import { useRecordActions } from '../lib/recordActions';
+import { useAutoRefresh } from '../lib/useAutoRefresh';
+import { useDataRefresh } from '../lib/dataRefresh';
 
 const UNASSIGNED = '__unassigned__';
 const STAGE_SHORT = { before: 'ก่อนตอก', after: 'หลังตอก' };
@@ -136,7 +138,6 @@ export default function PlanView({ session, role, onEdit }) {
   const [records, setRecords] = useState([]);
   const [tol, setTol] = useState(0.03);
   const [tolPositionM, setTolPositionM] = useState(0.075);
-  const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
 
   const containerRef = useRef(null);
@@ -164,27 +165,23 @@ export default function PlanView({ session, role, onEdit }) {
   // pile) is selected, so it doesn't stay open across popover instances.
   useEffect(() => { setDesignOpen(false); }, [selectedPile]);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      const [pilesRes, recRes, tolRes] = await Promise.all([
-        supabase.from('piles').select('id, pile_no, coordinate_pn, coordinate_pe, incline, zone, dia_mm, pile_top_level, pile_toe_level, length_m, coating_length_m, batter_bearing_deg, sea_bed_level, note').order('pile_no'),
-        supabase.from('asbuilt_records')
-          .select('*, piles(pile_no), station:benchmarks!station_id(name), survey_points(point_no, northing, easting, elevation)'),
-        supabase.from('project_settings').select('key, value').in('key', ['tol_cross_check_m', 'tol_position_m']),
-      ]);
-      if (cancelled) return;
-      setPiles(pilesRes.data ?? []);
-      (tolRes.data ?? []).forEach((r) => {
-        if (r.key === 'tol_cross_check_m' && r.value != null) setTol(r.value);
-        if (r.key === 'tol_position_m' && r.value != null) setTolPositionM(r.value);
-      });
-      setRecords(recRes.data ?? []);
-      setLoading(false);
-    })();
-    return () => { cancelled = true; };
+  const reload = useCallback(async () => {
+    const [pilesRes, recRes, tolRes] = await Promise.all([
+      supabase.from('piles').select('id, pile_no, coordinate_pn, coordinate_pe, incline, zone, dia_mm, pile_top_level, pile_toe_level, length_m, coating_length_m, batter_bearing_deg, sea_bed_level, note').order('pile_no'),
+      supabase.from('asbuilt_records')
+        .select('*, piles(pile_no), station:benchmarks!station_id(name), survey_points(point_no, northing, easting, elevation)'),
+      supabase.from('project_settings').select('key, value').in('key', ['tol_cross_check_m', 'tol_position_m']),
+    ]);
+    setPiles(pilesRes.data ?? []);
+    (tolRes.data ?? []).forEach((r) => {
+      if (r.key === 'tol_cross_check_m' && r.value != null) setTol(r.value);
+      if (r.key === 'tol_position_m' && r.value != null) setTolPositionM(r.value);
+    });
+    setRecords(recRes.data ?? []);
   }, []);
+
+  const { version, reportStart, reportEnd } = useDataRefresh();
+  const { loading } = useAutoRefresh(reload, { version, onStart: reportStart, onEnd: reportEnd });
 
   // Raw records grouped+flattened for display — same shape RecordsTable
   // derives, kept as a memo (not fetch-time state) so the shared

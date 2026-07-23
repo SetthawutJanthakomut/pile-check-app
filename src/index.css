@@ -44,6 +44,11 @@ body {
   position: sticky; top: 0; z-index: 20;
 }
 .topbar-user { margin-left: auto; font-size: 12px; opacity: 0.75; overflow: hidden; text-overflow: ellipsis; max-width: 40vw; }
+.topbar-refresh { display: flex; align-items: center; gap: 6px; }
+.topbar-refresh .link { padding: 4px; white-space: nowrap; }
+.topbar-refresh .link:disabled { opacity: 0.6; cursor: not-allowed; }
+.topbar-refresh-time { font-size: 12px; opacity: 0.75; white-space: nowrap; }
+.topbar-refresh-offline { color: #ffe1b8; opacity: 1; }
 .brand-mark { color: var(--accent); font-size: 20px; line-height: 1; }
 .pending-indicator {
   font-size: 12px; font-weight: 600;

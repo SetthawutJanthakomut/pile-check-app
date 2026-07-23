@@ -12,6 +12,8 @@ import RecordsTable from './pages/RecordsTable';
 import PlanView from './pages/PlanView';
 import SettingsPage from './pages/SettingsPage';
 import UsersPage from './pages/UsersPage';
+import TopBarRefresh from './components/TopBarRefresh';
+import { DataRefreshProvider } from './lib/dataRefresh';
 
 const PAGES = [
   { key: 'form', label: 'Form · แบบฟอร์ม' },
@@ -24,6 +26,14 @@ const PAGES = [
 ];
 
 export default function App() {
+  return (
+    <DataRefreshProvider>
+      <AppInner />
+    </DataRefreshProvider>
+  );
+}
+
+function AppInner() {
   const [session, setSession] = useState(undefined);
   const [role, setRole] = useState(null);
   const [status, setStatus] = useState(null);
@@ -139,6 +149,7 @@ export default function App() {
             ⏳ {pendingCount} pending{pendingPhotoCount > 0 ? ` · ${pendingPhotoCount} photo(s)` : ''} · รอซิงค์
           </span>
         )}
+        <TopBarRefresh />
         {session ? (
           <button className="link" onClick={() => supabase.auth.signOut()}>Sign out</button>
         ) : (

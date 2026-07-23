@@ -8,6 +8,8 @@ import RecordDetailModal from '../components/RecordDetailModal';
 import { effectivePrimary } from '../lib/primary';
 import { crossCheckDiff, posCheckFor } from '../lib/calculations';
 import { useRecordActions, canEditRecord, canDeleteRecord } from '../lib/recordActions';
+import { useAutoRefresh } from '../lib/useAutoRefresh';
+import { useDataRefresh } from '../lib/dataRefresh';
 
 const STAGE_SHORT = { before: 'ก่อนตอก', after: 'หลังตอก' };
 const UNASSIGNED = '__unassigned__';
@@ -81,7 +83,6 @@ const DEFAULT_FROZEN_KEYS = ['_view', 'pile_no'];
 
 export default function RecordsTable({ session, role, onEdit }) {
   const [records, setRecords] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
   const [filterPile, setFilterPile] = useState('');
   const [mineOnly, setMineOnly] = useState(false);
@@ -128,18 +129,14 @@ export default function RecordsTable({ session, role, onEdit }) {
     return q;
   }, [mineOnly, session?.user?.id]);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      const { data, error } = await fetchRecords();
-      if (cancelled) return;
-      if (error) setToast({ type: 'err', msg: error.message });
-      setRecords(data ?? []);
-      setLoading(false);
-    })();
-    return () => { cancelled = true; };
+  const reload = useCallback(async () => {
+    const { data, error } = await fetchRecords();
+    if (error) { setToast({ type: 'err', msg: error.message }); return; }
+    setRecords(data ?? []);
   }, [fetchRecords]);
+
+  const { version, reportStart, reportEnd } = useDataRefresh();
+  const { loading } = useAutoRefresh(reload, { version, onStart: reportStart, onEnd: reportEnd });
 
   const filtered = useMemo(() => records.filter((r) =>
     !filterPile || (r.piles?.pile_no || '').toLowerCase().includes(filterPile.toLowerCase())), [records, filterPile]);

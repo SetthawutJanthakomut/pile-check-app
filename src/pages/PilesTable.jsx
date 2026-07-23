@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import DataTable from '../components/DataTable';
 import { num } from '../lib/format';
 import { CSV_COLUMNS, parseCsv, exportPilesToCsv } from '../lib/pilesCsv';
+import { useAutoRefresh } from '../lib/useAutoRefresh';
+import { useDataRefresh } from '../lib/dataRefresh';
 
 const COLUMNS = [
   { key: 'pile_no', label: 'Pile No. · เลขเข็ม', type: 'text', width: 100 },
@@ -27,21 +29,20 @@ const ALL_ZONES = '__all__';
 export default function PilesTable({ role }) {
   const canWrite = role === 'admin';
   const [rows, setRows] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
   const [importMsg, setImportMsg] = useState('');
   const [importing, setImporting] = useState(false);
   const [selectedZone, setSelectedZone] = useState(ALL_ZONES);
   const fileRef = useRef(null);
 
-  useEffect(() => {
-    (async () => {
-      const { data, error } = await supabase.from('piles').select('*').order('pile_no');
-      if (error) setToast({ type: 'err', msg: error.message });
-      setRows(data ?? []);
-      setLoading(false);
-    })();
+  const reload = useCallback(async () => {
+    const { data, error } = await supabase.from('piles').select('*').order('pile_no');
+    if (error) { setToast({ type: 'err', msg: error.message }); return; }
+    setRows(data ?? []);
   }, []);
+
+  const { version, reportStart, reportEnd } = useDataRefresh();
+  const { loading } = useAutoRefresh(reload, { paused: importing, version, onStart: reportStart, onEnd: reportEnd });
 
   const columns = useMemo(() => {
     const zoneOptions = [...new Set(rows.map((r) => r.zone).filter(Boolean))].sort();

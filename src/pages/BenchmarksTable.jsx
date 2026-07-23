@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import DataTable from '../components/DataTable';
 import { num } from '../lib/format';
 import { CSV_COLUMNS, parseCsv, exportBenchmarksToCsv } from '../lib/benchmarksCsv';
+import { useAutoRefresh } from '../lib/useAutoRefresh';
+import { useDataRefresh } from '../lib/dataRefresh';
 
 const COLUMNS = [
   { key: 'name', label: 'Name · ชื่อหมุด', type: 'text', width: 120 },
@@ -17,20 +19,19 @@ const COLUMNS = [
 export default function BenchmarksTable({ role }) {
   const canWrite = role === 'admin';
   const [rows, setRows] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
   const [importMsg, setImportMsg] = useState('');
   const [importing, setImporting] = useState(false);
   const fileRef = useRef(null);
 
-  useEffect(() => {
-    (async () => {
-      const { data, error } = await supabase.from('benchmarks').select('*').order('name');
-      if (error) setToast({ type: 'err', msg: error.message });
-      setRows(data ?? []);
-      setLoading(false);
-    })();
+  const reload = useCallback(async () => {
+    const { data, error } = await supabase.from('benchmarks').select('*').order('name');
+    if (error) { setToast({ type: 'err', msg: error.message }); return; }
+    setRows(data ?? []);
   }, []);
+
+  const { version, reportStart, reportEnd } = useDataRefresh();
+  const { loading } = useAutoRefresh(reload, { paused: importing, version, onStart: reportStart, onEnd: reportEnd });
 
   function flashToast(t) {
     setToast(t);
