@@ -43,7 +43,7 @@ body {
   background: var(--ink); color: #fff;
   position: sticky; top: 0; z-index: 20;
 }
-.topbar-user { margin-left: auto; font-size: 12px; opacity: 0.75; overflow: hidden; text-overflow: ellipsis; max-width: 40vw; }
+.topbar-user { margin-left: auto; font-size: 12px; opacity: 0.75; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 40vw; }
 .topbar-refresh { display: flex; align-items: center; gap: 6px; }
 .topbar-refresh .link { padding: 4px; white-space: nowrap; }
 .topbar-refresh .link:disabled { opacity: 0.6; cursor: not-allowed; }
@@ -57,6 +57,28 @@ body {
   font-size: 12px; font-weight: 600;
   color: #ffe1b8; background: rgba(232, 89, 12, 0.35);
   border-radius: 6px; padding: 4px 8px; white-space: nowrap;
+}
+
+/* Icon-only collapse on mobile: .topbar-mobile-icon is hidden on desktop
+   (those controls only ever show text there); .topbar-label is hidden on
+   mobile so the icon takes over. */
+.topbar-mobile-icon { display: none; }
+.topbar-link-icon { display: inline-flex; align-items: center; justify-content: center; }
+
+@media (max-width: 640px) {
+  .topbar { gap: 4px; padding: 8px; }
+  .topbar-label { display: none; }
+  .topbar-mobile-icon { display: inline-block; font-size: 16px; }
+  .topbar-link-icon, .topbar-refresh .link {
+    min-width: 40px; min-height: 40px; padding: 8px;
+  }
+  .topbar-user { max-width: 90px; }
+  .topbar-refresh-prefix { display: none; }
+}
+
+@media (max-width: 400px) {
+  .topbar-refresh-time { display: none; }
+  .topbar-user { max-width: 60px; }
 }
 
 /* ---------- sub nav (Form / Tables tabs) ---------- */

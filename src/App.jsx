@@ -170,8 +170,16 @@ function AppInner() {
       <header className="topbar">
         <span className="brand-mark">⌖</span>
         <strong>{t('common.app.brand')}</strong>
-        <a className="link" href="/methodology.html" target="_blank" rel="noopener">
-          {t('nav.methodology')}
+        <a
+          className="link topbar-link-icon"
+          href="/methodology.html"
+          target="_blank"
+          rel="noopener"
+          title={t('nav.methodology')}
+          aria-label={t('nav.methodology')}
+        >
+          <span className="topbar-mobile-icon" aria-hidden="true">📖</span>
+          <span className="topbar-label">{t('nav.methodology')}</span>
         </a>
         <span className="topbar-user">
           {session ? `${session.user.email} · ${role ?? '…'}` : ''}
@@ -184,7 +192,15 @@ function AppInner() {
         <TopBarRefresh />
         <LangToggle />
         {session ? (
-          <button className="link" onClick={() => supabase.auth.signOut()}>{t('common.app.signOut')}</button>
+          <button
+            className="link topbar-link-icon"
+            onClick={() => supabase.auth.signOut()}
+            title={t('common.app.signOut')}
+            aria-label={t('common.app.signOut')}
+          >
+            <span className="topbar-mobile-icon" aria-hidden="true">⏻</span>
+            <span className="topbar-label">{t('common.app.signOut')}</span>
+          </button>
         ) : (
           <button className="link" onClick={() => setShowLogin(true)}>{t('common.app.signIn')}</button>
         )}

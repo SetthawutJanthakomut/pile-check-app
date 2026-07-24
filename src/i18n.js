@@ -38,6 +38,7 @@ const resources = {
           refresh: 'รีเฟรช',
           offline: 'ออฟไลน์',
           updatedAt: 'ข้อมูล ณ {{time}}',
+          updatedPrefix: 'ข้อมูล ณ',
         },
         dataTable: {
           columnsBtn: 'คอลัมน์',
@@ -498,6 +499,7 @@ const resources = {
           refresh: 'Refresh',
           offline: 'Offline',
           updatedAt: 'Updated {{time}}',
+          updatedPrefix: 'Updated',
         },
         dataTable: {
           columnsBtn: 'Columns',
