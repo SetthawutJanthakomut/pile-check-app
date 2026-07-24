@@ -17,6 +17,7 @@ const EMPTY_PT = { n: '', e: '', el: '' };
 const NEW_STN = '__new__';
 const ALL_ZONES = '__all__';
 const STAGE_KEY = { before: 'common.stage.before', after: 'common.stage.after' };
+const PHOTO_TYPE_KEY = { pile: 'common.photos.typePile', ts_screen: 'common.photos.typeTsScreen', other: 'common.photos.typeOther' };
 
 export default function FormPage({ session, role, active, editRecord, onCancelEdit, onEditSaved }) {
   const { t } = useTranslation();
@@ -660,10 +661,10 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
                 <img src={photoUrl(p.storage_path)} alt="" />
                 {canSave ? (
                   <select value={p.photoType} onChange={(e) => setExistingPhotoType(p.id, e.target.value)}>
-                    {PHOTO_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    {PHOTO_TYPES.map((pt) => <option key={pt.value} value={pt.value}>{t(PHOTO_TYPE_KEY[pt.value])}</option>)}
                   </select>
                 ) : (
-                  <span className="photo-type-label">{PHOTO_TYPES.find((t) => t.value === p.photoType)?.label}</span>
+                  <span className="photo-type-label">{PHOTO_TYPE_KEY[p.photoType] ? t(PHOTO_TYPE_KEY[p.photoType]) : p.photoType}</span>
                 )}
                 {canSave && <button type="button" className="photo-remove" onClick={() => removeExistingPhoto(p.id)}>✕</button>}
               </div>
@@ -672,7 +673,7 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
               <div key={p.tempId} className="photo-thumb">
                 <img src={p.previewUrl} alt="" />
                 <select value={p.photoType} onChange={(e) => setNewPhotoType(p.tempId, e.target.value)}>
-                  {PHOTO_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  {PHOTO_TYPES.map((pt) => <option key={pt.value} value={pt.value}>{t(PHOTO_TYPE_KEY[pt.value])}</option>)}
                 </select>
                 <button type="button" className="photo-remove" onClick={() => removeNewPhoto(p.tempId)}>✕</button>
               </div>

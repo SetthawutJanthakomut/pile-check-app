@@ -21,6 +21,10 @@ export default function ResultReadout({ results, p1El, tol, inc, stage, note }) 
   // Translates a raw calculations.js status string via its key map, falling
   // back to the raw value itself when unmapped (e.g. null).
   const st = (v, map) => (map[v] ? t(map[v]) : v);
+  // The total/tol caption is one authored string with an optional " / tol …" clause;
+  // when tol is omitted, interpolate it empty and drop everything from the separator on.
+  const totalTolFull = t('result.totalTolCaption', { dev: fmt(results.totalDev), tol: tol ? tol.positionM : '' });
+  const totalTolText = tol ? totalTolFull : totalTolFull.split(' / ')[0];
   return (
     <section className="readout mono">
       {(stage || note) && (
@@ -30,28 +34,28 @@ export default function ResultReadout({ results, p1El, tol, inc, stage, note }) 
         </div>
       )}
       <div className="readout-caption">{new Date().toLocaleString()}</div>
-      <div className="readout-head">AS-BUILT @ DESIGN CUT-OFF ({fmt(results.asbuiltEl)})</div>
+      <div className="readout-head">{t('result.asbuiltHeader', { el: fmt(results.asbuiltEl) })}</div>
       <div className="readout-grid">
         <div><span>N</span>{fmt(results.asbuiltN)}</div>
         <div><span>E</span>{fmt(results.asbuiltE)}</div>
       </div>
       <div className="readout-grid">
-        <div><span>Diff N</span>{fmt(results.diffN)} <b>{st(results.dirN, DIR_KEY)}</b></div>
-        <div><span>Diff E</span>{fmt(results.diffE)} <b>{st(results.dirE, DIR_KEY)}</b></div>
+        <div><span>{t('result.diffN')}</span>{fmt(results.diffN)} <b>{st(results.dirN, DIR_KEY)}</b></div>
+        <div><span>{t('result.diffE')}</span>{fmt(results.diffE)} <b>{st(results.dirE, DIR_KEY)}</b></div>
       </div>
       <div className="verdict-row">
         <div className={`stamp big ${posCheck === 'OK' ? 'pass' : 'fail'}`}>
           {st(posCheck, CHECK_KEY)}
-          <small>total {fmt(results.totalDev)} m{tol ? ` / tol ${tol.positionM}` : ''}</small>
+          <small>{totalTolText}</small>
         </div>
         <div className={`stamp ${results.slopeCheck === 'OK' ? 'pass' : 'fail'}`}>
-          slope {st(results.slopeCheck, CHECK_KEY)}
-          <small>1:{fmt(results.slope, 2)}{inc ? ` vs ${inc.vertical ? 'VERT' : `1:${inc.ratio}`}` : ''}</small>
+          {t('result.slopeStamp', { check: st(results.slopeCheck, CHECK_KEY) })}
+          <small>{inc ? t('result.slopeVs', { ratio: fmt(results.slope, 2), designRatio: inc.vertical ? 'VERT' : `1:${inc.ratio}` }) : `1:${fmt(results.slope, 2)}`}</small>
         </div>
         {results.p3Check && (
           <div className={`stamp ${results.p3Check === 'OK' ? 'pass' : 'fail'}`}>
-            P3 {st(results.p3Check, CHECK_KEY)}
-            <small>res {fmt(results.residual, 4)} m</small>
+            {t('result.p3Stamp', { check: st(results.p3Check, CHECK_KEY) })}
+            <small>{t('result.p3Res', { residual: fmt(results.residual, 4) })}</small>
           </div>
         )}
       </div>
@@ -67,17 +71,17 @@ export default function ResultReadout({ results, p1El, tol, inc, stage, note }) 
       </div>
 
       <details className="more">
-        <summary>Toe · Batter Az · Coating</summary>
+        <summary>{t('result.moreSummary')}</summary>
         <div className="readout-head">{t('result.asbuiltPileTopCenter')}</div>
         <div className="readout-grid">
           <div><span>N</span>{fmt(results.centerN)}</div>
           <div><span>E</span>{fmt(results.centerE)}</div>
-          <div><span>El.</span>{fmt(num(p1El))}</div>
+          <div><span>{t('result.elLabel')}</span>{fmt(num(p1El))}</div>
         </div>
         <div className="readout-grid">
-          <div><span>Toe N</span>{fmt(results.toeN)}</div>
-          <div><span>Toe E</span>{fmt(results.toeE)}</div>
-          <div><span>Toe Z</span>{fmt(results.toeZ)}</div>
+          <div><span>{t('records.col.toeN')}</span>{fmt(results.toeN)}</div>
+          <div><span>{t('records.col.toeE')}</span>{fmt(results.toeE)}</div>
+          <div><span>{t('records.col.toeZ')}</span>{fmt(results.toeZ)}</div>
         </div>
         {results.toeZDiff != null && (
           <div className="readout-grid">
@@ -92,16 +96,16 @@ export default function ResultReadout({ results, p1El, tol, inc, stage, note }) 
           </div>
         )}
         <div className="readout-grid">
-          <div><span>Batter Az</span>{fmt(results.asbuiltBatterAz)}°</div>
-          <div><span>Design</span>{results.designBatterAz == null ? '— (VERT)' : `${fmt(results.designBatterAz)}°`}</div>
-          <div><span>Diff Az</span>{results.diffBatterAz == null ? '—' : `${fmt(results.diffBatterAz)}°`}</div>
+          <div><span>{t('result.batterAz')}</span>{fmt(results.asbuiltBatterAz)}°</div>
+          <div><span>{t('result.designLabel')}</span>{results.designBatterAz == null ? t('result.vertPlaceholder') : `${fmt(results.designBatterAz)}°`}</div>
+          <div><span>{t('result.diffAz')}</span>{results.diffBatterAz == null ? '—' : `${fmt(results.diffBatterAz)}°`}</div>
         </div>
         {results.coatingBottomEl != null && (
           <div className="readout-grid">
-            <div><span>Coat. bottom</span>{fmt(results.coatingBottomEl)}</div>
-            <div><span>Seabed ({st(results.seabedSource, SEABED_SOURCE_KEY)})</span>{fmt(results.seabedUsed)}</div>
+            <div><span>{t('result.coatBottom')}</span>{fmt(results.coatingBottomEl)}</div>
+            <div><span>{t('result.seabedSource', { source: st(results.seabedSource, SEABED_SOURCE_KEY) })}</span>{fmt(results.seabedUsed)}</div>
             <div>
-              <span>Margin</span>{fmt(results.marginToSeabed)} <b>{st(results.marginLabel, MARGIN_KEY)}</b>
+              <span>{t('result.margin')}</span>{fmt(results.marginToSeabed)} <b>{st(results.marginLabel, MARGIN_KEY)}</b>
               {results.coatingCheck && (
                 <span className={`stamp ${results.coatingCheck === 'OK' ? 'pass' : 'fail'}`}>
                   {st(results.coatingCheck, CHECK_KEY)}
@@ -112,7 +116,7 @@ export default function ResultReadout({ results, p1El, tol, inc, stage, note }) 
         )}
         {results.seabedDiff != null && (
           <div className="readout-grid">
-            <div><span>Seabed diff</span>{fmt(results.seabedDiff)} <b>{st(results.seabedDiffLabel, SEABED_DIFF_KEY)}</b></div>
+            <div><span>{t('result.seabedDiff')}</span>{fmt(results.seabedDiff)} <b>{st(results.seabedDiffLabel, SEABED_DIFF_KEY)}</b></div>
           </div>
         )}
       </details>

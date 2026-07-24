@@ -13,6 +13,7 @@ import RecordsTable from './pages/RecordsTable';
 import PlanView from './pages/PlanView';
 import SettingsPage from './pages/SettingsPage';
 import UsersPage from './pages/UsersPage';
+import HistoryPage from './pages/HistoryPage';
 import TopBarRefresh from './components/TopBarRefresh';
 import { DataRefreshProvider } from './lib/dataRefresh';
 
@@ -24,6 +25,7 @@ const PAGES = [
   { key: 'records', labelKey: 'nav.records' },
   { key: 'settings', labelKey: 'nav.settings', adminOnly: true },
   { key: 'users', labelKey: 'nav.users', adminOnly: true },
+  { key: 'history', labelKey: 'nav.history', adminOnly: true },
 ];
 
 // Compact TH/EN toggle shown in the top bar, next to the user email / Sign
@@ -168,6 +170,9 @@ function AppInner() {
       <header className="topbar">
         <span className="brand-mark">⌖</span>
         <strong>{t('common.app.brand')}</strong>
+        <a className="link" href="/methodology.html" target="_blank" rel="noopener">
+          {t('nav.methodology')}
+        </a>
         <span className="topbar-user">
           {session ? `${session.user.email} · ${role ?? '…'}` : ''}
         </span>
@@ -229,6 +234,9 @@ function AppInner() {
       )}
       {role === 'admin' && (
         <div style={{ display: page === 'users' ? '' : 'none' }}><UsersPage session={session} /></div>
+      )}
+      {role === 'admin' && (
+        <div style={{ display: page === 'history' ? '' : 'none' }}><HistoryPage /></div>
       )}
       {showLogin && (
         <div className="modal-backdrop" onClick={() => setShowLogin(false)}>

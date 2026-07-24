@@ -1,0 +1,928 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>Pile Position Calculation Methodology — Pile Check</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap');
+  :root{
+    --ink:#0f1d2b; --muted:#46586b; --line:#d7dee5; --line2:#c3ceda;
+    --accent:#e8590c; --accent2:#c94a08; --paper:#f4f6f8; --card:#fff;
+    --pass:#2b8a3e; --lcd:#12222f; --lcd-text:#d9e6f2; --lcd-dim:#7c93a8;
+  }
+  *{box-sizing:border-box; margin:0}
+  body{font-family:'Sarabun',sans-serif; color:var(--ink); background:var(--paper); line-height:1.55}
+  .mono{font-family:'IBM Plex Mono',monospace; font-variant-numeric:tabular-nums}
+  .wrap{max-width:880px; margin:0 auto; padding:0 20px 80px}
+
+  .cover{background:var(--ink); color:#fff; padding:64px 20px 56px; text-align:center; position:relative}
+  .cover .mark{color:var(--accent); font-size:38px}
+  .cover h1{font-size:30px; font-weight:700; margin:14px 0 6px; letter-spacing:.01em}
+  .cover p{color:#9fb3c8; font-size:15px; max-width:520px; margin:0 auto}
+  .cover .tag{display:inline-block; margin-top:22px; padding:6px 16px; border:1px solid #2a3f52;
+              border-radius:20px; font-size:12px; color:#9fb3c8}
+
+  .langtoggle{position:absolute; top:18px; right:18px; display:flex; border:1px solid #3a4f63;
+              border-radius:8px; overflow:hidden}
+  .langtoggle button{font:600 12px 'IBM Plex Mono',monospace; padding:7px 14px; background:transparent;
+              color:#9fb3c8; border:none; cursor:pointer}
+  .langtoggle button.active{background:var(--accent); color:#fff}
+
+  .intro{padding:40px 0 8px}
+  .intro h2{font-size:20px; margin-bottom:10px}
+  .intro p{color:var(--muted); font-size:15px; max-width:680px}
+  .principle{display:flex; gap:16px; margin-top:22px; padding:18px 20px; background:var(--card);
+             border:1px solid var(--line); border-radius:10px; align-items:flex-start}
+  .principle .num{font-family:'IBM Plex Mono'; font-weight:700; color:var(--accent); font-size:20px}
+  .principle b{display:block; margin-bottom:3px}
+  .principle span{color:var(--muted); font-size:14px}
+
+  .step{margin-top:36px; background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden}
+  .step-head{display:flex; align-items:center; gap:14px; padding:16px 22px; background:#fff;
+             border-bottom:1px solid var(--line)}
+  .step-no{font-family:'IBM Plex Mono'; font-weight:700; font-size:13px; color:#fff;
+           background:var(--accent); width:30px; height:30px; border-radius:50%;
+           display:flex; align-items:center; justify-content:center; flex-shrink:0}
+  .step-head h3{font-size:16.5px; font-weight:700}
+  .step-head .sub{color:var(--muted); font-size:12.5px; margin-top:1px}
+  .step-body{padding:20px 22px 24px; display:grid; grid-template-columns:1.15fr 1fr; gap:22px}
+  @media (max-width:680px){ .step-body{grid-template-columns:1fr} }
+
+  .step-text p{font-size:14px; color:var(--ink); margin-bottom:10px}
+  .step-text .why{font-size:13px; color:var(--muted); border-left:2px solid var(--line2); padding-left:10px; margin-top:12px}
+
+  .formula{background:var(--lcd); color:var(--lcd-text); border-radius:8px; padding:12px 14px; margin:10px 0;
+           font-family:'IBM Plex Mono'; font-size:13px; overflow-x:auto}
+  .formula .lbl{color:var(--lcd-dim); font-size:10px; letter-spacing:.08em; display:block; margin-bottom:5px}
+
+  .diagram{background:var(--paper); border:1px solid var(--line); border-radius:8px; padding:10px;
+           display:flex; align-items:center; justify-content:center; min-height:180px}
+  .diagram svg{max-width:100%; height:auto}
+
+  .summary{margin-top:36px}
+  table.outputs{width:100%; border-collapse:collapse; font-size:13px; background:#fff;
+                border:1px solid var(--line); border-radius:8px; overflow:hidden}
+  table.outputs th{background:var(--ink); color:#fff; text-align:left; padding:9px 12px; font-size:12px}
+  table.outputs td{padding:8px 12px; border-bottom:1px solid var(--line)}
+  table.outputs tr:last-child td{border-bottom:none}
+  table.outputs td.key{font-family:'IBM Plex Mono'; color:var(--accent2); font-size:12px}
+
+  .refs{margin-top:36px; padding:20px 22px; background:#fff; border:1px solid var(--line); border-radius:10px}
+  .refs h3{font-size:15px; margin-bottom:10px}
+  .refs ul{padding-left:18px; font-size:13.5px; color:var(--muted)}
+  .refs li{margin-bottom:6px}
+  .refs .note{margin-top:14px; padding:12px 14px; background:var(--paper); border-radius:6px;
+             font-size:13px; color:var(--muted); border-left:3px solid var(--accent)}
+
+  footer{text-align:center; color:var(--muted); font-size:12px; margin-top:44px}
+
+  [data-lang-en]{display:none !important}
+  html.lang-en [data-lang-th]{display:none !important}
+  html.lang-en [data-lang-en]{display:block !important}
+  html.lang-en .step-body[data-lang-en]{display:grid !important}
+  html.lang-en table[data-lang-en]{display:table !important}
+  html.lang-en span[data-lang-en]{display:inline !important}
+  html.lang-en text[data-lang-en]{display:inline !important}
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="langtoggle">
+    <button id="btn-th" class="active" onclick="setLang('th')">TH</button>
+    <button id="btn-en" onclick="setLang('en')">EN</button>
+  </div>
+  <div class="mark">⌖</div>
+  <h1 data-lang-th>หลักการคำนวณตำแหน่งเข็ม As-Built</h1>
+  <h1 data-lang-en>As-Built Pile Position Calculation Methodology</h1>
+  <p data-lang-th>อธิบายทีละขั้นตอนว่าตัวเลขที่วัดจากกล้อง Total Station กลายเป็นผล
+     Diff N/E · Slope · Toe · OK/OVER ได้อย่างไร — สำหรับนำเสนอหลักการให้ทีมและผู้เกี่ยวข้องเข้าใจตรงกัน</p>
+  <p data-lang-en>A step-by-step walkthrough of how raw Total Station field readings become
+     Diff N/E · Slope · Toe · OK/OVER results — for presenting the methodology to the team and stakeholders.</p>
+  <div class="tag" data-lang-th>GULF MTP LNG · Pile Check · เอกสารอ้างอิงหลักการคำนวณ</div>
+  <div class="tag" data-lang-en>GULF MTP LNG · Pile Check · Calculation Methodology Reference</div>
+</div>
+
+<div class="wrap">
+
+  <div class="intro">
+    <h2 data-lang-th>หลักคิดตั้งต้น</h2>
+    <h2 data-lang-en>Starting Principle</h2>
+    <p data-lang-th>กล้องยิงไปที่ผิวเข็ม ไม่ใช่ศูนย์กลางเข็ม — ทุกสูตรด้านล่างมีเป้าหมายเดียวคือ
+       แปลง "จุดบนผิวที่เห็น" ให้กลายเป็น "ตำแหน่งศูนย์กลางเข็มที่ระดับตัดหัวเข็มตามแบบ" อย่างถูกต้อง แล้วเทียบกับแบบ</p>
+    <p data-lang-en>The instrument sights the pile's surface, not its center — every formula below exists for
+       one purpose: correctly convert a "visible surface point" into the "true pile-center position at the
+       design cut-off level," then compare it against the design.</p>
+
+    <div class="principle">
+      <div class="num">•</div>
+      <div>
+        <div data-lang-th><b>เก็บ 2-3 จุดต่อเข็ม</b>
+        <span>Point 1 = จุดสูงสุดที่มองเห็น (มักเป็นหัวเข็มเหนือน้ำ), Point 2 = จุดต่ำสุดที่มองเห็น,
+        Point 3 = จุดกลาง (ทางเลือก ใช้ตรวจทาน) — แต่ละจุดยิงโดยส่ายกล้องซ้าย-ขวาหาขอบเข็มแล้วเฉลี่ยมุม
+        เพื่อให้แนวเล็งผ่านศูนย์กลาง แต่ค่าที่อ่านได้ยังคงเป็นระยะถึง "ผิว" เข็ม</span></div>
+        <div data-lang-en><b>Collect 2-3 points per pile</b>
+        <span>Point 1 = highest visible point (usually the pile head above water), Point 2 = lowest visible
+        point, Point 3 = a mid point (optional, used for cross-checking) — each point is shot by panning the
+        instrument left and right to the pile's edges and averaging the angle, so the sightline passes through
+        the center, though the recorded reading is still a distance to the "surface" of the pile.</span></div>
+      </div>
+    </div>
+
+    <h2 style="font-size:18px; margin-top:30px" data-lang-th>ตัวอย่างข้อมูลจริง 2 ต้น ที่ใช้อธิบายตลอดเอกสารนี้</h2>
+    <h2 style="font-size:18px; margin-top:30px" data-lang-en>Two Real Example Piles Used Throughout This Document</h2>
+    <p style="color:var(--muted); font-size:14px; max-width:680px; margin-bottom:14px" data-lang-th>
+      เลือกสองต้นที่มีลักษณะตรงข้ามกัน เพื่อให้เห็นว่าสูตรเดียวกันทำงานถูกต้องกับทั้งสองแบบ:</p>
+    <p style="color:var(--muted); font-size:14px; max-width:680px; margin-bottom:14px" data-lang-en>
+      Two piles with opposite characteristics were chosen, to show that the same formulas work correctly for both:</p>
+
+    <table class="outputs" data-lang-th>
+      <tr><th></th><th class="mono">P4-25 <span style="font-weight:400">(batter pile 1:8)</span></th>
+          <th class="mono">AP2 <span style="font-weight:400">(เข็มตรง VERT.)</span></th></tr>
+      <tr><td class="key">Dia. / Length</td><td class="mono">800 mm / 35.10 m</td><td class="mono">1,200 mm / 33.00 m</td></tr>
+      <tr><td class="key">Cut-off EL. (design)</td><td class="mono">+3.525</td><td class="mono">+4.000</td></tr>
+      <tr><td class="key">Station (STN)</td><td class="mono">N 1,397,831.047 / E 733,112.184</td><td class="mono">T02</td></tr>
+      <tr><td class="key">Point 1 (บน)</td><td class="mono">N 1,397,964.848 / E 733,027.269 / El. 5.714</td><td class="mono">N 10,209.967 / E 10,491.535 / El. 18.148</td></tr>
+      <tr><td class="key">Point 2 (ล่าง)</td><td class="mono">N 1,397,964.583 / E 733,027.566 / El. 2.377</td><td class="mono">N 10,209.984 / E 10,491.535 / El. 0.580</td></tr>
+      <tr><td class="key">Point 3 (กลาง)</td><td class="mono">N 1,397,964.7235 / E 733,027.4175 / El. 4.0455</td><td class="mono">N 10,209.988 / E 10,491.537 / El. 10.874</td></tr>
+      <tr><td class="key">Actual slope</td><td class="mono">1 : 8.38</td><td class="mono">1 : 1,033.41</td></tr>
+      <tr><td class="key">มุมเอียงจากแนวดิ่ง</td><td class="mono">6.80°</td><td class="mono">0.055°</td></tr>
+      <tr><td class="key">Diff N / Diff E</td><td class="mono">+0.218 GO SOUTH / −0.753 GO EAST</td><td class="mono">+0.067 GO SOUTH / +0.033 GO WEST</td></tr>
+      <tr><td class="key">Total dev. / ผล</td><td class="mono" style="color:var(--accent2)">0.784 m — OVER</td><td class="mono" style="color:var(--pass)">0.075 m — OK</td></tr>
+    </table>
+    <table class="outputs" data-lang-en>
+      <tr><th></th><th class="mono">P4-25 <span style="font-weight:400">(batter pile 1:8)</span></th>
+          <th class="mono">AP2 <span style="font-weight:400">(vertical pile)</span></th></tr>
+      <tr><td class="key">Dia. / Length</td><td class="mono">800 mm / 35.10 m</td><td class="mono">1,200 mm / 33.00 m</td></tr>
+      <tr><td class="key">Cut-off EL. (design)</td><td class="mono">+3.525</td><td class="mono">+4.000</td></tr>
+      <tr><td class="key">Station (STN)</td><td class="mono">N 1,397,831.047 / E 733,112.184</td><td class="mono">T02</td></tr>
+      <tr><td class="key">Point 1 (top)</td><td class="mono">N 1,397,964.848 / E 733,027.269 / El. 5.714</td><td class="mono">N 10,209.967 / E 10,491.535 / El. 18.148</td></tr>
+      <tr><td class="key">Point 2 (bottom)</td><td class="mono">N 1,397,964.583 / E 733,027.566 / El. 2.377</td><td class="mono">N 10,209.984 / E 10,491.535 / El. 0.580</td></tr>
+      <tr><td class="key">Point 3 (mid)</td><td class="mono">N 1,397,964.7235 / E 733,027.4175 / El. 4.0455</td><td class="mono">N 10,209.988 / E 10,491.537 / El. 10.874</td></tr>
+      <tr><td class="key">Actual slope</td><td class="mono">1 : 8.38</td><td class="mono">1 : 1,033.41</td></tr>
+      <tr><td class="key">Tilt from vertical</td><td class="mono">6.80°</td><td class="mono">0.055°</td></tr>
+      <tr><td class="key">Diff N / Diff E</td><td class="mono">+0.218 GO SOUTH / −0.753 GO EAST</td><td class="mono">+0.067 GO SOUTH / +0.033 GO WEST</td></tr>
+      <tr><td class="key">Total dev. / Result</td><td class="mono" style="color:var(--accent2)">0.784 m — OVER</td><td class="mono" style="color:var(--pass)">0.075 m — OK</td></tr>
+    </table>
+    <p style="color:var(--muted); font-size:13px; margin-top:8px" data-lang-th>
+      P4-25 verify กับไฟล์ Excel ต้นแบบครบทุกทศนิยม ใช้เป็นชุดทดสอบหลักของระบบมาตั้งแต่ต้น ·
+      AP2 verify ข้ามระบบเพิ่มเติมกับพิกัดจริงใน AutoCAD</p>
+    <p style="color:var(--muted); font-size:13px; margin-top:8px" data-lang-en>
+      P4-25 was verified against the original Excel workbook to full decimal precision, and has been the
+      system's main test set from the start · AP2 was additionally cross-verified against real coordinates
+      in AutoCAD</p>
+  </div>
+
+  <!-- STEP 1 -->
+  <div class="step">
+    <div class="step-head">
+      <div class="step-no">1</div>
+      <div>
+        <div data-lang-th><h3>หาแนวแกนจริงของเข็ม</h3><div class="sub">จาก Point 1 (บน) ไป Point 2 (ล่าง)</div></div>
+        <div data-lang-en><h3>Find the Pile's True Axis</h3><div class="sub">From Point 1 (top) to Point 2 (bottom)</div></div>
+      </div>
+    </div>
+    <div class="step-body">
+      <div class="step-text">
+        <p data-lang-th>เข็มอาจเอียงจากแบบเล็กน้อย ก่อนคำนวณอะไรต่อ ต้องรู้ก่อนว่า <b>แนวแกนจริง</b>ของเข็มต้นนี้
+        ชี้ไปทิศไหนและเอียงเท่าไหร่ — หาได้จากเวกเตอร์ระหว่างจุดบนสุดกับล่างสุดที่วัดมา</p>
+        <p data-lang-en>The pile may be tilted slightly from the design. Before any further calculation, we
+        need this pile's <b>true axis</b> — which direction it points and how much it tilts — found from the
+        vector between the measured top and bottom points.</p>
+        <div class="formula">
+          <span class="lbl" data-lang-th>AZIMUTH (ทิศทางแนวแกน)</span>
+          <span class="lbl" data-lang-en>AZIMUTH (axis direction)</span>
+          Az = atan2(E₁−E₂, N₁−N₂) + 180°
+        </div>
+        <div class="formula">
+          <span class="lbl" data-lang-th>SLOPE (ความชัน แสดงเป็น 1:x)</span>
+          <span class="lbl" data-lang-en>SLOPE (expressed as 1:x)</span>
+          slope = (El₁ − El₂) / horizontal_dist(P1, P2)
+        </div>
+        <p class="why" data-lang-th>Azimuth ใช้หลักตรีโกณมาตรฐานงานสำรวจ (bearing จากพิกัด N/E)
+        ส่วน slope คือมาตรฐานงานเข็มเอียงที่เขียนเป็นอัตราส่วน 1:x เช่น 1:8 = ทุกๆ 8 หน่วยแนวราบ ลึกลง 1 หน่วย</p>
+        <p class="why" data-lang-en>Azimuth uses standard surveying trigonometry (bearing from N/E
+        coordinates). Slope is the standard batter-pile convention written as a 1:x ratio — e.g. 1:8 means
+        for every 8 horizontal units, the pile drops 1 unit.</p>
+        <table class="outputs" style="margin-top:8px; font-size:12px" data-lang-th>
+          <tr><th></th><th>Azimuth</th><th>Slope (1:x)</th><th>มุมเอียง</th></tr>
+          <tr><td class="key">P4-25 (เอียง)</td><td class="mono">131.74°</td><td class="mono">1 : 8.38</td><td class="mono">6.80°</td></tr>
+          <tr><td class="key">AP2 (ตรง)</td><td class="mono">≈0° (เกือบชี้เหนือ)</td><td class="mono">1 : 1,033.41</td><td class="mono">0.055°</td></tr>
+        </table>
+        <table class="outputs" style="margin-top:8px; font-size:12px" data-lang-en>
+          <tr><th></th><th>Azimuth</th><th>Slope (1:x)</th><th>Tilt angle</th></tr>
+          <tr><td class="key">P4-25 (batter)</td><td class="mono">131.74°</td><td class="mono">1 : 8.38</td><td class="mono">6.80°</td></tr>
+          <tr><td class="key">AP2 (vertical)</td><td class="mono">≈0° (nearly due north)</td><td class="mono">1 : 1,033.41</td><td class="mono">0.055°</td></tr>
+        </table>
+      </div>
+      <div class="diagram">
+        <svg viewBox="0 0 220 220" width="220">
+          <line x1="70" y1="100" x2="70" y2="38" stroke="#7c93a8" stroke-width="1.5"/>
+          <polygon points="70,28 64,42 76,42" fill="#7c93a8"/>
+          <text x="76" y="34" font-size="11" fill="#7c93a8" font-family="IBM Plex Mono">N</text>
+          <line x1="70" y1="100" x2="174.5" y2="193.2" stroke="#46586b" stroke-width="2" stroke-dasharray="4 3"/>
+          <path d="M 70,65 A 35,35 0 0,1 96.1,123.3" stroke="#e8590c" stroke-width="1.6" fill="none"/>
+          <text x="86" y="92" font-size="10" fill="#e8590c">Az</text>
+          <text x="86" y="104" font-size="8" fill="#e8590c" data-lang-th>(ตามเข็มนาฬิกา จากเหนือ)</text>
+          <text x="86" y="104" font-size="8" fill="#e8590c" data-lang-en>(clockwise from north)</text>
+          <circle cx="70" cy="100" r="6" fill="#e8590c"/>
+          <text x="80" y="98" font-size="11" fill="#0f1d2b" font-family="IBM Plex Mono" data-lang-th>P1 (บน)</text>
+          <text x="80" y="98" font-size="11" fill="#0f1d2b" font-family="IBM Plex Mono" data-lang-en>P1 (top)</text>
+          <circle cx="174.5" cy="193.2" r="6" fill="#0f1d2b"/>
+          <text x="120" y="210" font-size="11" fill="#0f1d2b" font-family="IBM Plex Mono" data-lang-th>P2 (ล่าง)</text>
+          <text x="120" y="210" font-size="11" fill="#0f1d2b" font-family="IBM Plex Mono" data-lang-en>P2 (bottom)</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <div class="step" style="border:2px solid #7c93a8">
+    <div class="step-head" style="background:#f4f6f8">
+      <div class="step-no" style="background:#46586b">◐</div>
+      <div>
+        <div data-lang-th><h3>ที่มาของทิศเล็งไปยังศูนย์กลาง (Az_STN→P1)</h3>
+        <div class="sub">เทคนิคสัมผัสซ้าย-ขวา — เหตุผลที่แนวเล็งผ่านศูนย์กลางได้ทั้งที่กล้องเห็นแค่ผิวเข็ม</div></div>
+        <div data-lang-en><h3>Where the Sighting Direction to Center (Az_STN→P1) Comes From</h3>
+        <div class="sub">The left-right tangent technique — why the sightline passes through center even though the instrument only sees the surface</div></div>
+      </div>
+    </div>
+    <div class="step-body">
+      <div class="step-text">
+        <p data-lang-th>เข็มเป็นทรงกระบอก มองจากกล้องจะเห็นแค่ "ขอบ" ซ้ายและขวา ไม่เห็นศูนย์กลาง — เทคนิคภาคสนามคือ
+        <b>ส่ายกล้องไปสัมผัสขอบซ้ายอ่านมุม แล้วส่ายไปสัมผัสขอบขวาอ่านมุมอีกค่า จากนั้นเฉลี่ยสองมุมนั้น</b></p>
+        <p data-lang-en>The pile is a cylinder — from the instrument you can only see its left and right
+        "edges," not the center. The field technique is: <b>pan to touch the left edge and read the angle,
+        pan to touch the right edge and read another angle, then average the two angles.</b></p>
+        <div class="formula">
+          <span class="lbl" data-lang-th>มุมเฉลี่ย = ทิศไปยังศูนย์กลาง</span>
+          <span class="lbl" data-lang-en>Average angle = direction to center</span>
+          <span data-lang-th>Az_STN→P1 = (มุมอ่าน ขอบซ้าย + มุมอ่าน ขอบขวา) ÷ 2</span>
+          <span data-lang-en>Az_STN→P1 = (left-edge angle reading + right-edge angle reading) ÷ 2</span>
+        </div>
+        <p class="why" data-lang-th><b>ทำไมเฉลี่ยแล้วตรงศูนย์กลางพอดี:</b> เส้นสัมผัสวงกลม 2 เส้นจากจุดภายนอกวงกลมเดียวกัน
+        (ซ้ายและขวา) ทำมุมเท่ากันกับเส้นที่ลากจากจุดนั้นไปยัง<b>ศูนย์กลางวงกลมพอดี</b> เป็นสมบัติเรขาคณิตพื้นฐาน
+        ของวงกลม — เฉลี่ยมุมซ้าย-ขวา จึงได้ทิศตรงศูนย์กลางเป๊ะ โดยไม่ต้องเห็นศูนย์กลางจริงเลย</p>
+        <p class="why" data-lang-en><b>Why averaging lands exactly on center:</b> the two tangent lines to a
+        circle from the same external point (left and right) each make an equal angle with the line drawn from
+        that point to the <b>circle's center</b> — a basic circle theorem. Averaging the left/right angles
+        therefore gives the exact direction to center, without ever seeing the center directly.</p>
+        <p style="font-size:13px; color:var(--muted)" data-lang-th>หลังได้ทิศแล้ว กล้องจะยิงวัดระยะตามแนวนั้น —
+        แสงเลเซอร์ทะลุเข็มไม่ได้ จึงไปตกที่ผิวเข็มด้านใกล้กล้อง (จุด P1 ที่วัดได้จริง) แม้ทิศจะชี้ตรงศูนย์กลางก็ตาม
+        นี่คือเหตุผลที่ต้อง "เลื่อน" จุด P1 เข้าไปอีก r ในขั้นตอนถัดไป</p>
+        <p style="font-size:13px; color:var(--muted)" data-lang-en>Once the direction is set, the instrument
+        measures distance along that line — but the laser can't pass through solid concrete, so it lands on
+        the near-side surface of the pile (the actual measured point P1), even though the direction points
+        straight at the center. This is why P1 must be "shifted" inward by radius r in the next step.</p>
+      </div>
+      <div class="diagram">
+        <svg viewBox="0 0 220 200" width="220">
+          <circle cx="150" cy="90" r="30" fill="none" stroke="#d7dee5" stroke-width="1.5"/>
+          <circle cx="150" cy="90" r="2.5" fill="#c3ceda"/>
+          <line x1="20" y1="160" x2="130.7" y2="67" stroke="#0f1d2b" stroke-width="1.4"/>
+          <line x1="20" y1="160" x2="158.6" y2="118.8" stroke="#0f1d2b" stroke-width="1.4"/>
+          <line x1="20" y1="160" x2="150" y2="90" stroke="#e8590c" stroke-width="1.8" stroke-dasharray="4 2"/>
+          <circle cx="130.7" cy="67" r="2.5" fill="#0f1d2b"/>
+          <circle cx="158.6" cy="118.8" r="2.5" fill="#0f1d2b"/>
+          <text x="95" y="55" font-size="9" fill="#46586b" data-lang-th>สัมผัสซ้าย (α₁)</text>
+          <text x="95" y="55" font-size="9" fill="#46586b" data-lang-en>left tangent (α₁)</text>
+          <text x="150" y="145" font-size="9" fill="#46586b" data-lang-th>สัมผัสขวา (α₂)</text>
+          <text x="150" y="145" font-size="9" fill="#46586b" data-lang-en>right tangent (α₂)</text>
+          <text x="45" y="105" font-size="9" fill="#e8590c" data-lang-th>เฉลี่ย = ศูนย์กลาง</text>
+          <text x="45" y="105" font-size="9" fill="#e8590c" data-lang-en>average = center</text>
+          <rect x="14" y="154" width="12" height="12" fill="#0f1d2b"/>
+          <text x="6" y="182" font-size="9" fill="#46586b" data-lang-th>กล้อง (STN)</text>
+          <text x="6" y="182" font-size="9" fill="#46586b" data-lang-en>Instrument (STN)</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 2 -->
+  <div class="step">
+    <div class="step-head">
+      <div class="step-no">2</div>
+      <div>
+        <div data-lang-th><h3>แปลงจุดผิวให้เป็นศูนย์กลางเข็ม</h3><div class="sub">เลื่อนจาก P1 เข้าหาแกนกลางตามรัศมี</div></div>
+        <div data-lang-en><h3>Convert the Surface Point to the Pile Center</h3><div class="sub">Shift from P1 inward to the true axis by the radius</div></div>
+      </div>
+    </div>
+    <div class="step-body">
+      <div class="step-text">
+        <p data-lang-th>ตอนยิงกล้อง แนวเล็งผ่านศูนย์กลางเข็มแล้ว (เพราะเฉลี่ยมุมซ้าย-ขวา) แต่ <b>ระยะที่วัดได้ยังเป็นระยะถึงผิว</b>
+        ต้อง "เลื่อน" จุดที่วัดเข้าไปตามแนวเล็งอีกครึ่งเส้นผ่านศูนย์กลาง ไปทางเดียวกับทิศจากกล้องไปยังจุดที่วัด</p>
+        <p data-lang-en>When the shot is taken, the sightline already passes through the pile's center
+        (because of the left/right averaging), but the <b>measured distance is still to the surface</b>. The
+        measured point must be "shifted" further along that same sightline by one radius, in the same direction
+        from the instrument to the measured point.</p>
+        <div class="formula">
+          <span class="lbl" data-lang-th>รัศมีที่ต้องเลื่อน</span>
+          <span class="lbl" data-lang-en>Radius to shift by</span>
+          <span data-lang-th>r = เส้นผ่านศูนย์กลางเข็ม (มม.) ÷ 2 ÷ 1000 (→ เมตร)</span>
+          <span data-lang-en>r = pile diameter (mm) ÷ 2 ÷ 1000 (→ meters)</span>
+        </div>
+        <div class="formula">
+          <span class="lbl" data-lang-th>ศูนย์กลางที่ระดับ P1</span>
+          <span class="lbl" data-lang-en>Center at P1's level</span>
+          Center_N = P1_N + r · cos(Az_STN→P1)<br>
+          Center_E = P1_E + r · sin(Az_STN→P1)
+        </div>
+        <table class="outputs" style="margin-top:8px; font-size:12px" data-lang-th>
+          <tr><th></th><th>r (รัศมี)</th><th>Center N / E</th></tr>
+          <tr><td class="key">P4-25</td><td class="mono">0.400 m</td><td class="mono">1,397,965.186 / 733,027.055</td></tr>
+          <tr><td class="key">AP2</td><td class="mono">0.600 m</td><td class="mono">10,210.505 / 10,491.800</td></tr>
+        </table>
+        <table class="outputs" style="margin-top:8px; font-size:12px" data-lang-en>
+          <tr><th></th><th>r (radius)</th><th>Center N / E</th></tr>
+          <tr><td class="key">P4-25</td><td class="mono">0.400 m</td><td class="mono">1,397,965.186 / 733,027.055</td></tr>
+          <tr><td class="key">AP2</td><td class="mono">0.600 m</td><td class="mono">10,210.505 / 10,491.800</td></tr>
+        </table>
+      </div>
+      <div class="diagram">
+        <svg viewBox="0 0 220 190" width="220">
+          <circle cx="140" cy="70" r="35" fill="none" stroke="#d7dee5" stroke-width="1.5"/>
+          <circle cx="140" cy="70" r="3" fill="#2b8a3e"/>
+          <text x="148" y="66" font-size="10" fill="#2b8a3e" data-lang-th>ศูนย์กลาง</text>
+          <text x="148" y="66" font-size="10" fill="#2b8a3e" data-lang-en>Center</text>
+          <line x1="20" y1="150" x2="140" y2="70" stroke="#0f1d2b" stroke-width="1.2" stroke-dasharray="3 2"/>
+          <line x1="110.9" y1="89.4" x2="140" y2="70" stroke="#e8590c" stroke-width="2.2"/>
+          <circle cx="110.9" cy="89.4" r="3" fill="#e8590c"/>
+          <text x="20" y="102" font-size="10" fill="#e8590c" data-lang-th>จุดที่วัด (ผิว) — บนขอบวงกลม</text>
+          <text x="20" y="102" font-size="10" fill="#e8590c" data-lang-en>measured point (surface) — on circle edge</text>
+          <text x="118" y="86" font-size="9" fill="#e8590c">r</text>
+          <rect x="12" y="144" width="14" height="14" fill="#0f1d2b"/>
+          <text x="8" y="176" font-size="9" fill="#46586b" data-lang-th>กล้อง (STN)</text>
+          <text x="8" y="176" font-size="9" fill="#46586b" data-lang-en>Instrument (STN)</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 3 -->
+  <div class="step">
+    <div class="step-head">
+      <div class="step-no">3</div>
+      <div>
+        <div data-lang-th><h3>เลื่อนตามแนวแกนถึงระดับตัดหัวเข็มตามแบบ</h3><div class="sub">ศูนย์กลางที่ P1 ยังไม่ใช่ระดับที่จะเทียบกับแบบ</div></div>
+        <div data-lang-en><h3>Slide Along the Axis to the Design Cut-off Level</h3><div class="sub">The center at P1's level isn't yet the level to compare against design</div></div>
+      </div>
+    </div>
+    <div class="step-body">
+      <div class="step-text">
+        <p data-lang-th>จุด P1 ที่วัดอาจอยู่สูง/ต่ำกว่าระดับตัดหัวเข็มตามแบบ (Cut-off level) — ต้องเลื่อนศูนย์กลางที่หาได้ในขั้น 2
+        ลงไปตามแนวแกนจริง (ไม่ใช่แนวดิ่ง เพราะเข็มเอียง) จนถึงระดับตัดหัวเข็มตามแบบ ถึงจะเทียบกับตำแหน่งออกแบบได้ตรงๆ</p>
+        <p data-lang-en>The measured P1 may sit above or below the design cut-off level. The center found in
+        Step 2 must be slid down along the true axis (not straight down, since the pile is tilted) until it
+        reaches the design cut-off level, so it can be directly compared to the design position.</p>
+        <div class="formula">
+          <span class="lbl" data-lang-th>ระยะดิ่งที่ต้องเลื่อน / ระยะตามแนวแกน</span>
+          <span class="lbl" data-lang-en>Vertical distance to move / horizontal offset</span>
+          <span data-lang-th>Δz = El(P1) − ระดับตัดหัวเข็มตามแบบ<br>
+          Δaxis = Δz · tan(มุมเอียงจากแนวดิ่ง)</span>
+          <span data-lang-en>Δz = El(P1) − design cut-off level<br>
+          Δaxis = Δz · tan(tilt angle from vertical)</span>
+        </div>
+        <div class="formula">
+          <span class="lbl" data-lang-th>ตำแหน่ง As-built ที่ระดับตัดหัวเข็ม</span>
+          <span class="lbl" data-lang-en>As-built position at cut-off level</span>
+          As-built_N = Center_N + Δaxis · cos(Az)<br>
+          As-built_E = Center_E + Δaxis · sin(Az)
+        </div>
+      </div>
+      <div class="diagram">
+        <svg viewBox="0 0 200 190" width="200">
+          <line x1="80" y1="20" x2="140" y2="160" stroke="#0f1d2b" stroke-width="2"/>
+          <circle cx="80" cy="20" r="4" fill="#2b8a3e"/>
+          <text x="88" y="24" font-size="9" fill="#2b8a3e" data-lang-th>ศูนย์กลาง @P1</text>
+          <text x="88" y="24" font-size="9" fill="#2b8a3e" data-lang-en>Center @P1</text>
+          <line x1="20" y1="110" x2="180" y2="110" stroke="#e8590c" stroke-dasharray="4 3"/>
+          <text x="20" y="104" font-size="9" fill="#e8590c" data-lang-th>ระดับตัดหัวเข็มตามแบบ</text>
+          <text x="20" y="104" font-size="9" fill="#e8590c" data-lang-en>Design cut-off level</text>
+          <circle cx="112" cy="110" r="4" fill="#e8590c"/>
+          <text x="118" y="130" font-size="9" fill="#e8590c">As-built</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 4 -->
+  <div class="step">
+    <div class="step-head">
+      <div class="step-no">4</div>
+      <div>
+        <div data-lang-th><h3>เทียบกับตำแหน่งตามแบบ</h3><div class="sub">ได้ Diff N/E และทิศแก้ไข</div></div>
+        <div data-lang-en><h3>Compare Against the Design Position</h3><div class="sub">Yields Diff N/E and correction direction</div></div>
+      </div>
+    </div>
+    <div class="step-body">
+      <div class="step-text">
+        <p data-lang-th>ลบตำแหน่ง As-built (จากขั้น 3) กับตำแหน่งออกแบบ (PN/PE ในตาราง Design) ได้ระยะเยื้อง
+        แล้วดูเครื่องหมายบวก/ลบเพื่อบอกทิศทาง "แก้ไข" — ทิศที่บอกคือทิศที่ควรเลื่อนกลับไปหาแบบ ไม่ใช่ทิศที่เข็มเยื้องไป</p>
+        <p data-lang-en>Subtract the As-built position (from Step 3) from the design position (PN/PE in the
+        Design table) to get the deviation, then read the sign to get the "correction" direction — the
+        direction shown is the direction to move BACK to design, not the direction the pile deviated toward.</p>
+        <div class="formula">
+          <span class="lbl" data-lang-th>ผลต่างและทิศแก้ไข</span>
+          <span class="lbl" data-lang-en>Difference and correction direction</span>
+          Diff N = As-built_N − Design_PN &nbsp;→&nbsp; negative = GO SOUTH, positive = GO NORTH<br>
+          Diff E = As-built_E − Design_PE &nbsp;→&nbsp; negative = GO EAST, positive = GO WEST<br>
+          Total deviation = √(Diff N² + Diff E²) &nbsp;→&nbsp; compared against tolerance
+        </div>
+        <p class="why" data-lang-th>เกณฑ์ OK/OVER มาจากค่าเผื่อที่ตั้งไว้ในหน้า Settings — เปลี่ยนได้ตามสเปกแต่ละโครงการ</p>
+        <p class="why" data-lang-en>The OK/OVER threshold comes from the tolerance set on the Settings page —
+        adjustable per project specification.</p>
+      </div>
+      <div class="diagram">
+        <svg viewBox="0 0 200 170" width="200">
+          <line x1="20" y1="90" x2="180" y2="90" stroke="#c3ceda"/>
+          <line x1="100" y1="20" x2="100" y2="160" stroke="#c3ceda"/>
+          <circle cx="100" cy="90" r="5" fill="#2b8a3e"/>
+          <text x="90" y="112" font-size="9" fill="#2b8a3e" data-lang-th>ตามแบบ</text>
+          <text x="90" y="112" font-size="9" fill="#2b8a3e" data-lang-en>design</text>
+          <circle cx="135" cy="55" r="5" fill="#c92a2a"/>
+          <text x="140" y="52" font-size="9" fill="#c92a2a">As-built</text>
+          <line x1="100" y1="90" x2="135" y2="55" stroke="#c92a2a" stroke-width="1.6"/>
+          <text x="10" y="14" font-size="9" fill="#7c93a8">N ↑</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 5 -->
+  <div class="step">
+    <div class="step-head">
+      <div class="step-no">5</div>
+      <div>
+        <div data-lang-th><h3>ตรวจทานด้วยจุดที่ 3 (ทางเลือก)</h3><div class="sub">กันความผิดพลาดจากการอ่านค่าเพี้ยน</div></div>
+        <div data-lang-en><h3>Cross-Check With Point 3 (Optional)</h3><div class="sub">Guards against a bad or mistyped reading</div></div>
+      </div>
+    </div>
+    <div class="step-body">
+      <div class="step-text">
+        <p data-lang-th>สองจุด (P1, P2) เพียงพอที่จะลากเส้นได้เสมอ ต่อให้จุดใดจุดหนึ่งอ่านค่าผิด สูตรก็ยังคำนวณออกมาได้ตัวเลข
+        โดยไม่รู้ตัวว่าผิด — จุดที่ 3 (กลางเข็ม) ใช้เป็น <b>ตัวตรวจทาน</b> ว่าสามจุดยังเรียงเป็นเส้นตรงเดียวกันจริงไหม</p>
+        <p data-lang-en>Two points (P1, P2) can always define a line — even if one reading is wrong, the
+        formulas will still silently produce a number. Point 3 (the pile's mid point) serves as a
+        <b>cross-check</b> for whether all three points genuinely lie on the same straight line.</p>
+        <div class="formula">
+          <span class="lbl" data-lang-th>ระยะตั้งฉากของ P3 จากเส้น P1-P2 (cross product)</span>
+          <span class="lbl" data-lang-en>Perpendicular distance of P3 from line P1-P2 (cross product)</span>
+          residual = |vector(P1→P3) × vector(P1→P2)| ÷ |vector(P1→P2)|
+        </div>
+        <p class="why" data-lang-th>ถ้า residual เกินค่าเผื่อที่ตั้งไว้ แปลว่าจุดใดจุดหนึ่งน่าจะอ่าน/พิมพ์ผิด ควรกลับไปวัดซ้ำก่อนเชื่อผลคำนวณ</p>
+        <p class="why" data-lang-en>If the residual exceeds the set tolerance, one of the points was likely
+        misread or mistyped — remeasure before trusting the calculated result.</p>
+      </div>
+      <div class="diagram">
+        <svg viewBox="0 0 200 160" width="200">
+          <line x1="40" y1="30" x2="160" y2="130" stroke="#0f1d2b" stroke-width="1.5"/>
+          <circle cx="40" cy="30" r="4" fill="#0f1d2b"/><text x="46" y="26" font-size="9">P1</text>
+          <circle cx="160" cy="130" r="4" fill="#0f1d2b"/><text x="166" y="134" font-size="9">P2</text>
+          <circle cx="110" cy="65" r="4" fill="#e8590c"/><text x="118" y="62" font-size="9" fill="#e8590c">P3</text>
+          <line x1="110" y1="65" x2="100" y2="80" stroke="#e8590c" stroke-width="1.3" stroke-dasharray="3 2"/>
+          <text x="60" y="90" font-size="9" fill="#e8590c">residual</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 6 -->
+  <div class="step">
+    <div class="step-head">
+      <div class="step-no">6</div>
+      <div>
+        <div data-lang-th><h3>หาตำแหน่งปลายเข็ม (Toe)</h3><div class="sub">ขยายจากศูนย์กลาง ตามแนวแกนจริง ต่อไปอีกความยาวเข็ม</div></div>
+        <div data-lang-en><h3>Find the Pile Toe Position</h3><div class="sub">Extend from center along the true axis by the pile length</div></div>
+      </div>
+    </div>
+    <div class="step-body">
+      <div class="step-text">
+        <p data-lang-th>ปลายเข็มอยู่ลึกลงไปตามความยาวเข็มจากแบบ แต่ต้อง <b>ขยายไปตามแนวแกนจริงที่วัดได้</b> (ไม่ใช่แนวดิ่ง)
+        เพราะเข็มเอียง ปลายเข็มจึงเยื้องออกจากแนวดิ่งของหัวเข็มไปตามมุมเอียงนั้น</p>
+        <p data-lang-en>The toe sits deeper by the design pile length, but must be <b>extended along the
+        measured true axis</b> (not straight down) — because the pile is tilted, the toe is offset from the
+        vertical below the head by that tilt angle.</p>
+        <div class="formula">
+          <span class="lbl" data-lang-th>ตำแหน่งปลายเข็ม</span>
+          <span class="lbl" data-lang-en>Toe position</span>
+          horiz = pile length × sin(tilt angle)<br>
+          Toe_N = Center_N + horiz · cos(Az) &nbsp;&nbsp; Toe_E = Center_E + horiz · sin(Az)<br>
+          Toe_Z = El(P1) − pile length × cos(tilt angle)
+        </div>
+      </div>
+      <div class="diagram">
+        <svg viewBox="0 0 160 200" width="160">
+          <line x1="70" y1="20" x2="110" y2="180" stroke="#0f1d2b" stroke-width="2.5"/>
+          <circle cx="70" cy="20" r="4" fill="#2b8a3e"/><text x="76" y="24" font-size="9" data-lang-th>หัวเข็ม</text>
+          <text x="76" y="24" font-size="9" data-lang-en>Pile head</text>
+          <circle cx="110" cy="180" r="4" fill="#c92a2a"/><text x="20" y="192" font-size="9" fill="#c92a2a" data-lang-th>ปลายเข็ม (Toe)</text>
+          <text x="20" y="192" font-size="9" fill="#c92a2a" data-lang-en>Pile toe</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- CAD VERIFICATION SECTION -->
+  <div class="intro" style="padding-top:8px">
+    <h2 data-lang-th>ตรวจสอบซ้ำด้วยโปรแกรมเขียนแบบ (เช่น AutoCAD)</h2>
+    <h2 data-lang-en>Cross-Verifying With CAD Software (e.g. AutoCAD)</h2>
+    <p data-lang-th>หลักการเดียวกับที่คำนวณในระบบ/Excel ทุกประการ — เพียงแต่ทำด้วยการ "วาด" แทนการ "คำนวณเลข"
+    ขั้นตอนใดที่ในเลขใช้ตรีโกณมิติ ในภาพจะใช้วงกลม เส้นตรง และการ extend/measure แทน</p>
+    <p data-lang-en>Exactly the same principle used in the system/Excel — just done by "drawing" instead of
+    "calculating numbers." Wherever the numeric method uses trigonometry, the drawing method uses circles,
+    straight lines, and extend/measure operations instead.</p>
+  </div>
+
+  <div class="step">
+    <div class="step-head">
+      <div class="step-no">A</div>
+      <div>
+        <div data-lang-th><h3>Plot จุดที่วัดได้ทั้งหมด</h3><div class="sub">STN, Point 1, Point 2 (และ Point 3 ถ้ามี)</div></div>
+        <div data-lang-en><h3>Plot All Measured Points</h3><div class="sub">STN, Point 1, Point 2 (and Point 3 if measured)</div></div>
+      </div>
+    </div>
+    <div class="step-body" style="grid-template-columns:1fr">
+      <div class="step-text">
+        <p data-lang-th><b>1.</b> นำพิกัด N/E ของจุดตั้งกล้อง (STN), Point 1 และ Point 2 ไป plot เป็นจุดใน CAD ตามระบบพิกัดเดียวกับแบบ</p>
+        <p data-lang-en><b>1.</b> Plot the N/E coordinates of the station (STN), Point 1, and Point 2 as points
+        in CAD, in the same coordinate system as the design.</p>
+        <p data-lang-th><b>2.</b> ลากเส้นตรงจาก STN → Point 1 และ STN → Point 2 — เส้นทั้งสองนี้คือแนวเล็งกล้องจริงที่ใช้วัด</p>
+        <p data-lang-en><b>2.</b> Draw straight lines from STN → Point 1 and STN → Point 2 — these two lines
+        are the actual sightlines used for the measurement.</p>
+        <p data-lang-th><b>3.</b> Plot Point 3 (ถ้าวัดไว้) แล้ววัดระยะตั้งฉากจาก Point 3 ไปยังเส้น Point1–Point2 —
+        ถ้าระยะนี้ใกล้ศูนย์มาก แปลว่าสามจุดเรียงเป็นเส้นตรงเดียวกันจริง (สอดคล้องกับขั้นตอนที่ 5 ในหลักการคำนวณด้านบน)</p>
+        <p data-lang-en><b>3.</b> Plot Point 3 (if measured) and measure the perpendicular distance from Point 3
+        to the line Point1–Point2 — if this distance is close to zero, the three points genuinely lie on one
+        line (matches Step 5 in the calculation methodology above).</p>
+        <p class="why" data-lang-th>ขั้นนี้เทียบเท่ากับการหา Azimuth และ P3 residual ในสูตร — แค่ทำด้วยสายตาและเครื่องมือวัดใน CAD แทนสูตรตรีโกณ</p>
+        <p class="why" data-lang-en>This step is equivalent to computing Azimuth and the P3 residual in the
+        formulas — just done visually with CAD's measuring tools instead of trigonometric formulas.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-head">
+      <div class="step-no">B</div>
+      <div>
+        <div data-lang-th><h3>แปลงจุดผิวเป็นศูนย์กลางเข็ม ด้วยวงกลม</h3><div class="sub">แทนการคำนวณ offset ด้วยรัศมี</div></div>
+        <div data-lang-en><h3>Convert Surface Points to Pile Center, With Circles</h3><div class="sub">Replaces the radius-offset calculation</div></div>
+      </div>
+    </div>
+    <div class="step-body">
+      <div class="step-text">
+        <p data-lang-th><b>4.</b> สร้างวงกลมรัศมี = เส้นผ่านศูนย์กลางเข็ม÷2 ที่จุด Point 1 และอีกวงที่ Point 2
+        แล้ว extend เส้น STN→P1 ให้ทะลุผ่านวงกลมที่ P1 (ต่อไปด้านไกลจาก STN) จุดตัดที่ได้คือ
+        <b>ศูนย์กลางเข็มจริงที่ระดับ P1</b> — ทำแบบเดียวกันกับเส้น STN→P2 และวงกลมที่ P2</p>
+        <p data-lang-en><b>4.</b> Draw a circle of radius = pile diameter÷2 at Point 1, and another at Point 2,
+        then extend the line STN→P1 through the circle at P1 (continuing past P1, away from STN). The
+        intersection point is the <b>true pile center at P1's level</b> — do the same for line STN→P2 and the
+        circle at P2.</p>
+        <p data-lang-th><b>5.</b> ลากเส้นตรงเชื่อมจุดศูนย์กลางทั้งสองที่ได้ (ศูนย์กลาง@P1 → ศูนย์กลาง@P2)
+        เส้นนี้คือ<b>แนวแกนจริงของเข็ม</b> ใช้เป็นทิศสำหรับคำนวณต่อในขั้นถัดไป</p>
+        <p data-lang-en><b>5.</b> Draw a straight line connecting the two center points obtained (Center@P1 →
+        Center@P2). This line is the <b>pile's true axis</b>, used as the direction for the next steps.</p>
+        <p class="why" data-lang-th>นี่คือหลักการเดียวกับสูตร Center_N/E ในขั้นที่ 2 ของหน้าก่อน เพียงแต่ CAD แก้ offset
+        ให้ทั้งสองจุด (P1 และ P2) ในขณะที่สูตรของระบบแก้ offset เฉพาะที่ P1 แล้วใช้ทิศจาก P1→P2 ดิบเป็นแนวแกน —
+        ในทางปฏิบัติผลต่างนี้เล็กน้อยมากเมื่อ STN อยู่ไกลจากเข็ม (หลักสิบเมตร) เทียบกับเส้นผ่านศูนย์กลางเข็ม
+        (ไม่ถึง 1.5 ม.) เส้นทั้งสองแบบจะทับกันแทบสนิทในภาพวาดจริง</p>
+        <p class="why" data-lang-en>This is the same principle as the Center_N/E formula in Step 2 earlier —
+        except CAD corrects the offset at BOTH points (P1 and P2), while the system's formula only corrects the
+        offset at P1 and uses the raw P1→P2 direction as the axis. In practice this difference is tiny when
+        STN is far from the pile (tens of meters) compared to the pile diameter (under 1.5 m) — both lines
+        will nearly coincide in a real drawing.</p>
+      </div>
+      <div class="diagram">
+        <svg viewBox="0 0 220 220" width="220">
+          <circle cx="70" cy="60" r="26" fill="none" stroke="#c3ceda" stroke-width="1.3"/>
+          <circle cx="140" cy="160" r="26" fill="none" stroke="#c3ceda" stroke-width="1.3"/>
+          <line x1="10" y1="190" x2="80.9" y2="36.4" stroke="#0f1d2b" stroke-width="1.2" stroke-dasharray="3 2"/>
+          <line x1="10" y1="190" x2="165.3" y2="154.2" stroke="#0f1d2b" stroke-width="1.2" stroke-dasharray="3 2"/>
+          <circle cx="70" cy="60" r="3" fill="#e8590c"/><text x="76" y="56" font-size="9" fill="#e8590c" data-lang-th>P1 (ผิว)</text>
+          <text x="76" y="56" font-size="9" fill="#e8590c" data-lang-en>P1 (surface)</text>
+          <circle cx="140" cy="160" r="3" fill="#e8590c"/><text x="146" y="164" font-size="9" fill="#e8590c" data-lang-th>P2 (ผิว)</text>
+          <text x="146" y="164" font-size="9" fill="#e8590c" data-lang-en>P2 (surface)</text>
+          <circle cx="80.9" cy="36.4" r="3.5" fill="#2b8a3e"/><text x="86" y="32" font-size="9" fill="#2b8a3e" data-lang-th>ศูนย์กลาง@P1</text>
+          <text x="86" y="32" font-size="9" fill="#2b8a3e" data-lang-en>Center@P1</text>
+          <circle cx="165.3" cy="154.2" r="3.5" fill="#2b8a3e"/><text x="118" y="176" font-size="9" fill="#2b8a3e" data-lang-th>ศูนย์กลาง@P2</text>
+          <text x="118" y="176" font-size="9" fill="#2b8a3e" data-lang-en>Center@P2</text>
+          <line x1="80.9" y1="36.4" x2="165.3" y2="154.2" stroke="#2b8a3e" stroke-width="2"/>
+          <rect x="4" y="184" width="12" height="12" fill="#0f1d2b"/><text x="0" y="212" font-size="9" fill="#46586b">STN</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-head">
+      <div class="step-no">C</div>
+      <div>
+        <div data-lang-th><h3>หาระยะไปยัง Cut-off — หารด้วยค่าความชัน 1:x</h3><div class="sub">ระยะที่รู้ = ผลต่างระดับ (แนวดิ่ง)</div></div>
+        <div data-lang-en><h3>Distance to Cut-off — Divide by the Slope Ratio 1:x</h3><div class="sub">Known quantity = elevation difference (vertical)</div></div>
+      </div>
+    </div>
+    <div class="step-body">
+      <div class="step-text">
+        <p data-lang-th><b>6.</b> ระยะราบที่ต้องเลื่อนไปตามแนวแกน (ทิศจากขั้น B) เพื่อไปถึงระดับตัดหัวเข็มตามแบบ:</p>
+        <p data-lang-en><b>6.</b> The horizontal distance to move along the axis (direction from Step B) to
+        reach the design cut-off level:</p>
+        <div class="formula">
+          <span class="lbl" data-lang-th>ระยะราบ ที่ระดับ Cut-off</span>
+          <span class="lbl" data-lang-en>Horizontal distance at Cut-off level</span>
+          horizontal = (El(P1) − design cut-off level) ÷ Actual Slope (the x in 1:x)
+        </div>
+        <p data-lang-th>ได้ระยะแล้ว วัดจากศูนย์กลาง@P1 ไปตามเส้นแนวแกน (ทิศจากขั้น B) ด้วยระยะนี้ ก็จะได้พิกัด As-built ที่ Cut-off</p>
+        <p data-lang-en>With this distance, measure from Center@P1 along the axis line (direction from Step B)
+        by this distance to get the As-built coordinates at Cut-off.</p>
+        <p class="why" data-lang-th><b>ทำไมหารด้วย slope ตรงๆ ได้:</b> เพราะ "ผลต่างระดับ" (Δz) ที่รู้ เป็น
+        <b>ระยะแนวดิ่ง</b> และ slope = แนวดิ่ง÷แนวราบ อยู่แล้วโดยนิยาม ดังนั้น แนวราบ = แนวดิ่ง ÷ slope
+        ตรงไปตรงมา ไม่ต้องผ่านมุมองศาเลย — สอดคล้อง 100% กับสูตร Δz·tan(มุมเอียง) ในหน้าก่อน (ค่าเดียวกัน คนละรูปเขียน)</p>
+        <p class="why" data-lang-en><b>Why dividing by slope works directly:</b> the known "elevation
+        difference" (Δz) is a <b>vertical distance</b>, and slope = vertical÷horizontal by definition. So
+        horizontal = vertical ÷ slope, directly — no angle needed at all. This is 100% consistent with the
+        Δz·tan(tilt) formula from the earlier page (same value, different way of writing it).</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="step" style="border:2px solid var(--pass)">
+    <div class="step-head" style="background:#eef7ef">
+      <div class="step-no" style="background:var(--pass)">✓</div>
+      <div>
+        <div data-lang-th><h3>หาระยะไปยัง Pile Toe — วิธีที่ถูกต้องและง่ายสุด</h3><div class="sub">วัดตามเส้นแนวแกน (3 มิติ) โดยตรง ไม่ต้องหารด้วย slope</div></div>
+        <div data-lang-en><h3>Distance to the Pile Toe — the Correct, Simplest Method</h3><div class="sub">Measure directly along the (3D) axis line — no dividing by slope</div></div>
+      </div>
+    </div>
+    <div class="step-body" style="grid-template-columns:1fr">
+      <div class="step-text">
+        <p data-lang-th><b>วิธีที่ยืนยันแล้วว่าถูกต้องใน CAD:</b> เส้นแนวแกนที่ลากไว้ในขั้น B (ศูนย์กลาง@P1 → ศูนย์กลาง@P2)
+        มีความชันจริงติดอยู่ในตัวเส้นเองอยู่แล้ว (เพราะปลายทั้งสองมีค่า Z ต่างกัน) — แค่ <b>extend เส้นนี้เลยจุด P2
+        ออกไป แล้ววัด/มาร์คจุดตามเส้นด้วยระยะ = ความยาวเข็มตามแบบ โดยตรง</b> (วัดตามแนวเส้นจริง ไม่ใช่ระยะฉายราบ)
+        CAD จะจัดการมุมเอียงให้อัตโนมัติในตัวมันเอง ได้ตำแหน่งปลายเข็มที่ถูกต้องโดยไม่ต้องคำนวณ sin/cos เอง</p>
+        <p data-lang-en><b>The method confirmed correct in CAD:</b> the axis line drawn in Step B (Center@P1 →
+        Center@P2) already has real slope built into it (since its two ends have different Z values) — just
+        <b>extend this line past P2, then measure/mark a point along the line at a distance = the design pile
+        length, directly</b> (measured along the true line, not the horizontal projection). CAD handles the
+        tilt automatically, giving the correct toe position without computing sin/cos yourself.</p>
+        <div class="formula">
+          <span class="lbl" data-lang-th>สองสูตรนี้ตอบคนละคำถาม — ต้องแยกกันเสมอ</span>
+          <span class="lbl" data-lang-en>These two formulas answer different questions — always keep them separate</span>
+          Horizontal distance (for Toe N, Toe E) = pile length × <b>sin</b>(tilt from vertical)<br>
+          Toe Z level (for Toe Z) = El(P1) − pile length × <b>cos</b>(tilt from vertical)
+        </div>
+        <p class="why" data-lang-th><b>ตรวจสอบแล้วกับ CAD จริง (เข็ม AP2):</b> ระยะราบที่คำนวณด้วย sin ได้ 0.0319 ม.
+        ตรงกับ dimension ที่ CAD วัดได้จริงระหว่าง P1(Cen)→Toe เป๊ะ ส่วนระดับ Toe Z ที่คำนวณด้วย cos
+        ได้ −14.852 ม. ตรงกับทั้งรายงานและพิกัด Z ใน CAD — ยืนยันว่าทั้งสองสูตรถูกต้อง เพียงแต่ตอบคนละแกน
+        (sin → พิกัดราบ X/Y, cos → ระดับ Z) ถ้าใช้ CAD วัดตามเส้น 3 มิติโดยตรงตามวิธีในกล่องด้านบน
+        ไม่ต้องแยกคำนวณเองเลย เพราะ CAD จัดการทั้งสองแกนให้พร้อมกันในทีเดียว</p>
+        <p class="why" data-lang-en><b>Verified against real CAD (pile AP2):</b> the horizontal distance
+        computed with sin gives 0.0319 m, matching the dimension CAD actually measured between P1(Cen)→Toe
+        exactly. The Toe Z level computed with cos gives −14.852 m, matching both the report and the Z
+        coordinate in CAD — confirming both formulas are correct, they simply answer different axes (sin →
+        planimetric X/Y, cos → Z level). If CAD is used to measure directly along the 3D line as described
+        above, there's no need to compute either separately — CAD handles both axes together in one step.</p>
+        <p style="margin-top:14px" data-lang-th><b>ทำไมห้ามใช้ "ความยาวเข็ม ÷ Slope" แทน sin เป็นกฎทั่วไป:</b>
+        สำหรับเข็มที่เกือบตรง (เอียงน้อยมาก) สองสูตรนี้ให้ค่าใกล้กันจนแยกไม่ออก — แต่พอเข็มเอียงมากขึ้น
+        (เช่นเข็ม batter ของ Temporary Jetty ในโครงการนี้) สองสูตรเริ่มต่างกันจริง เพราะ sin กับ
+        1/slope (=tan) มีค่าเท่ากันเฉพาะที่มุมเล็กมากๆ เท่านั้น:</p>
+        <p style="margin-top:14px" data-lang-en><b>Why "pile length ÷ Slope" must not replace sin as a
+        general rule:</b> for a nearly-vertical pile (very small tilt), these two formulas give values so close
+        they're indistinguishable — but as the tilt increases (e.g. the Temporary Jetty batter piles in this
+        project), the two formulas genuinely diverge, because sin and 1/slope (=tan) are only equal at very
+        small angles:</p>
+        <table class="outputs" style="margin-top:8px" data-lang-th>
+          <tr><th>เข็มตัวอย่าง</th><th>Slope (1:x)</th><th>มุมเอียง</th>
+              <th>L × sin (ถูกต้อง)</th><th>L ÷ Slope (ทางลัด)</th><th>ต่างกัน</th></tr>
+          <tr><td class="key">AP2 (เกือบตรง)</td><td>1 : 1,033.41</td><td>0.055°</td>
+              <td>0.0319 ม.</td><td>0.0319 ม.</td><td style="color:var(--pass)">0.000 ม.</td></tr>
+          <tr><td class="key">P4-25 (batter 1:8)</td><td>1 : 8.38</td><td>6.80°</td>
+              <td>4.157 ม.</td><td>4.187 ม.</td><td style="color:var(--accent2); font-weight:700">0.030 ม.</td></tr>
+        </table>
+        <table class="outputs" style="margin-top:8px" data-lang-en>
+          <tr><th>Example pile</th><th>Slope (1:x)</th><th>Tilt angle</th>
+              <th>L × sin (correct)</th><th>L ÷ Slope (shortcut)</th><th>Difference</th></tr>
+          <tr><td class="key">AP2 (nearly vertical)</td><td>1 : 1,033.41</td><td>0.055°</td>
+              <td>0.0319 m</td><td>0.0319 m</td><td style="color:var(--pass)">0.000 m</td></tr>
+          <tr><td class="key">P4-25 (batter 1:8)</td><td>1 : 8.38</td><td>6.80°</td>
+              <td>4.157 m</td><td>4.187 m</td><td style="color:var(--accent2); font-weight:700">0.030 m</td></tr>
+        </table>
+        <p class="why" data-lang-th>0.030 ม. อาจดูน้อย แต่คิดเป็นเกือบ 20% ของค่าเผื่อตำแหน่งทั้งหมดของโครงการ (0.150 ม.)
+        — <b>สรุป: ใช้ sin เป็นสูตรมาตรฐานเสมอ ปลอดภัยกับเข็มทุกแบบทั้งตรงและเอียง</b>
+        ส่วนสูตรลัด (÷slope) ใช้ได้เฉพาะเข็มที่เกือบตรงจริงๆ เท่านั้น ถ้าสอนทีมเป็นกฎทั่วไปจะเสี่ยงผิดกับเข็มเอียง
+        โดยไม่มีใครรู้ตัว</p>
+        <p class="why" data-lang-en>0.030 m may look small, but it's nearly 20% of the project's total position
+        tolerance (0.150 m) — <b>conclusion: always use sin as the standard formula, safe for every pile
+        whether vertical or battered.</b> The shortcut (÷slope) only works for genuinely near-vertical piles;
+        teaching it as a general rule risks silent errors on tilted piles.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-head">
+      <div class="step-no">✚</div>
+      <div>
+        <div data-lang-th><h3>ทำไม Cut-off หารด้วย Slope ได้เป๊ะ แต่ Toe ไม่ได้</h3><div class="sub">กุญแจอยู่ที่ "สิ่งที่รู้" เป็นด้านไหนของสามเหลี่ยม</div></div>
+        <div data-lang-en><h3>Why Cut-off Divides by Slope Exactly, But Toe Doesn't</h3><div class="sub">The key is which side of the triangle the "known quantity" represents</div></div>
+      </div>
+    </div>
+    <div class="step-body">
+      <div class="step-text">
+        <p data-lang-th>Slope นิยามจาก <b>แนวดิ่ง ÷ แนวราบ</b> — คือความสัมพันธ์ของ<b>สองด้านประกอบมุมฉาก</b>เท่านั้น
+        ไม่เกี่ยวกับด้านตรงข้ามมุมฉาก (ความยาวเข็มจริง/สลันท์)</p>
+        <p data-lang-en>Slope is defined as <b>vertical ÷ horizontal</b> — a relationship between the
+        <b>two legs of a right triangle</b> only. It has nothing to do with the hypotenuse (the pile's true,
+        slant length).</p>
+        <ul style="padding-left:20px; font-size:14px; color:var(--muted); margin:10px 0" data-lang-th>
+          <li><b>Cut-off</b> — สิ่งที่รู้คือ Δz (ผลต่างระดับ) = <b>ด้านแนวดิ่ง</b> ซึ่งเป็นด้านประกอบมุมฉาก
+          หารด้วย slope ตรงๆ จึงถูกต้อง<b>เป๊ะ 100% ทุกมุมเอียง</b> ไม่มีการประมาณเลย
+          (พิสูจน์: Δz÷slope = 2.189÷8.38363 = 0.261104 ตรงกับค่า verify ไว้ 0.261104134245845 ทุกทศนิยม)</li>
+          <li><b>Toe</b> — สิ่งที่รู้คือความยาวเข็ม = <b>ด้านตรงข้ามมุมฉาก</b> (สลันท์) ไม่ใช่ด้านประกอบมุมฉาก
+          หารด้วย slope ตรงๆ จึง<b>ใช้ไม่ได้ทั่วไป</b> ต้องใช้ sin แทน</li>
+        </ul>
+        <ul style="padding-left:20px; font-size:14px; color:var(--muted); margin:10px 0" data-lang-en>
+          <li><b>Cut-off</b> — the known quantity is Δz (elevation difference) = a <b>vertical leg</b>, one of
+          the two legs of the right triangle. Dividing by slope directly is therefore <b>exactly correct at
+          any tilt angle</b>, with no approximation at all.
+          (Proof: Δz÷slope = 2.189÷8.38363 = 0.261104, matching the verified value 0.261104134245845 to every
+          decimal place.)</li>
+          <li><b>Toe</b> — the known quantity is the pile length = the <b>hypotenuse</b> (slant length), not a
+          leg. Dividing by slope directly therefore <b>does not generally work</b>; sin must be used instead.</li>
+        </ul>
+        <p class="why" data-lang-th>เข็ม AP2 ที่ทดสอบก่อนหน้า "ดูเหมือน" ใช้ ÷slope กับ Toe ได้ ก็เพราะเข็มเกือบตรง
+        (มุมเอียง 0.055°) ทำให้ด้านตรงข้ามมุมฉาก (ความยาวเข็ม) ≈ ด้านแนวดิ่งเกือบพอดี — เป็นเรื่องบังเอิญของ
+        เข็มเกือบตรงเท่านั้น ไม่ใช่เพราะสูตรใช้แทนกันได้จริง</p>
+        <p class="why" data-lang-en>Pile AP2 tested earlier "appeared" to work with ÷slope for Toe only because
+        the pile is nearly vertical (0.055° tilt), making the hypotenuse (pile length) ≈ the vertical leg —
+        a coincidence of near-vertical piles only, not because the formulas are genuinely interchangeable.</p>
+      </div>
+      <div class="diagram">
+        <svg viewBox="0 0 200 190" width="200">
+          <polygon points="30,160 150,160 150,40" fill="none" stroke="#0f1d2b" stroke-width="1.5"/>
+          <line x1="30" y1="160" x2="150" y2="40" stroke="#e8590c" stroke-width="2.5"/>
+          <text x="55" y="90" font-size="10" fill="#e8590c" transform="rotate(-45 55 90)" data-lang-th>เข็ม (สลันท์)</text>
+          <text x="55" y="90" font-size="10" fill="#e8590c" transform="rotate(-45 55 90)" data-lang-en>pile (slant)</text>
+          <text x="155" y="105" font-size="10" fill="#2b8a3e" data-lang-th>แนวดิ่ง (Δz)</text>
+          <text x="155" y="105" font-size="10" fill="#2b8a3e" data-lang-en>vertical (Δz)</text>
+          <text x="70" y="178" font-size="10" fill="#46586b" data-lang-th>แนวราบ</text>
+          <text x="70" y="178" font-size="10" fill="#46586b" data-lang-en>horizontal</text>
+          <path d="M150,65 A25,25 0 0,1 132.3,57.7" stroke="#7c93a8" stroke-width="1.5" fill="none"/>
+          <text x="122" y="52" font-size="9" fill="#7c93a8">θ</text>
+          <rect x="140" y="150" width="10" height="10" fill="none" stroke="#0f1d2b"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <div class="summary">
+    <h2 style="font-size:20px; margin-bottom:12px" data-lang-th>ตารางสรุปผลลัพธ์ทั้งหมด</h2>
+    <h2 style="font-size:20px; margin-bottom:12px" data-lang-en>Summary of All Outputs</h2>
+    <table class="outputs" data-lang-th>
+      <tr><th>ผลลัพธ์</th><th>ที่มา</th><th>ใช้ตัดสินอะไร</th></tr>
+      <tr><td class="key">Diff N / Diff E</td><td>ขั้น 4</td><td>ทิศและระยะที่ต้องแก้ตำแหน่งหัวเข็ม</td></tr>
+      <tr><td class="key">Total deviation</td><td>ขั้น 4</td><td>OK / OVER เทียบค่าเผื่อตำแหน่ง</td></tr>
+      <tr><td class="key">Slope (1:x)</td><td>ขั้น 1 เทียบแบบ</td><td>OK / OVER เทียบค่าเผื่อความเอียง</td></tr>
+      <tr><td class="key">P3 residual</td><td>ขั้น 5</td><td>ความน่าเชื่อถือของข้อมูลที่วัด</td></tr>
+      <tr><td class="key">Toe N/E/Z</td><td>ขั้น 6</td><td>ตำแหน่งปลายเข็มจริง</td></tr>
+      <tr><td class="key">Coating margin</td><td>ขยายจากขั้น 6 ตามแนวแกน</td><td>สารเคลือบจมพ้นค่าเผื่อใต้ท้องทะเลหรือไม่</td></tr>
+    </table>
+    <table class="outputs" data-lang-en>
+      <tr><th>Output</th><th>Source</th><th>Used to determine</th></tr>
+      <tr><td class="key">Diff N / Diff E</td><td>Step 4</td><td>Direction and distance to correct the pile head position</td></tr>
+      <tr><td class="key">Total deviation</td><td>Step 4</td><td>OK / OVER against the position tolerance</td></tr>
+      <tr><td class="key">Slope (1:x)</td><td>Step 1 vs. design</td><td>OK / OVER against the tilt tolerance</td></tr>
+      <tr><td class="key">P3 residual</td><td>Step 5</td><td>Reliability of the measured data</td></tr>
+      <tr><td class="key">Toe N/E/Z</td><td>Step 6</td><td>The actual pile toe position</td></tr>
+      <tr><td class="key">Coating margin</td><td>Extended from Step 6 along the axis</td><td>Whether the coating is embedded deep enough below seabed</td></tr>
+    </table>
+
+    <h2 style="font-size:18px; margin:26px 0 12px" data-lang-th>ผลลัพธ์ครบวงจรของทั้งสองเข็มตัวอย่าง</h2>
+    <h2 style="font-size:18px; margin:26px 0 12px" data-lang-en>Full Results for Both Example Piles</h2>
+    <table class="outputs" data-lang-th>
+      <tr><th>ผลลัพธ์</th><th class="mono">P4-25</th><th class="mono">AP2</th></tr>
+      <tr><td class="key">As-built N / E</td><td class="mono">1,397,965.012 / 733,027.249</td><td class="mono">10,210.519 / 10,491.800</td></tr>
+      <tr><td class="key">Diff N / Diff E</td><td class="mono">+0.218 GO SOUTH / −0.753 GO EAST</td><td class="mono">+0.067 GO SOUTH / +0.033 GO WEST</td></tr>
+      <tr><td class="key">Total deviation</td><td class="mono" style="color:var(--accent2)">0.784 m — OVER</td><td class="mono" style="color:var(--pass)">0.075 m — OK</td></tr>
+      <tr><td class="key">Slope check</td><td class="mono" style="color:var(--pass)">1:8.38 — OK</td><td class="mono" style="color:var(--pass)">1:1,033.41 — OK</td></tr>
+      <tr><td class="key">P3 residual</td><td class="mono" style="color:var(--pass)">0.008 m — OK</td><td class="mono" style="color:var(--pass)">0.0141 m — OK</td></tr>
+      <tr><td class="key">Toe N / E / Z</td><td class="mono">1,397,962.418 / 733,030.157 / −29.139</td><td class="mono">10,210.537 / 10,491.800 / −14.852</td></tr>
+      <tr><td class="key">ตรวจสอบข้าม</td><td>Excel ต้นแบบ (verify ครบทศนิยม)</td><td>พิกัดจริงใน AutoCAD</td></tr>
+    </table>
+    <table class="outputs" data-lang-en>
+      <tr><th>Output</th><th class="mono">P4-25</th><th class="mono">AP2</th></tr>
+      <tr><td class="key">As-built N / E</td><td class="mono">1,397,965.012 / 733,027.249</td><td class="mono">10,210.519 / 10,491.800</td></tr>
+      <tr><td class="key">Diff N / Diff E</td><td class="mono">+0.218 GO SOUTH / −0.753 GO EAST</td><td class="mono">+0.067 GO SOUTH / +0.033 GO WEST</td></tr>
+      <tr><td class="key">Total deviation</td><td class="mono" style="color:var(--accent2)">0.784 m — OVER</td><td class="mono" style="color:var(--pass)">0.075 m — OK</td></tr>
+      <tr><td class="key">Slope check</td><td class="mono" style="color:var(--pass)">1:8.38 — OK</td><td class="mono" style="color:var(--pass)">1:1,033.41 — OK</td></tr>
+      <tr><td class="key">P3 residual</td><td class="mono" style="color:var(--pass)">0.008 m — OK</td><td class="mono" style="color:var(--pass)">0.0141 m — OK</td></tr>
+      <tr><td class="key">Toe N / E / Z</td><td class="mono">1,397,962.418 / 733,030.157 / −29.139</td><td class="mono">10,210.537 / 10,491.800 / −14.852</td></tr>
+      <tr><td class="key">Cross-checked with</td><td>Original Excel (verified to full decimal precision)</td><td>Real coordinates in AutoCAD</td></tr>
+    </table>
+    <p style="color:var(--muted); font-size:13px; margin-top:8px" data-lang-th>
+      เข็มเอียงมาก (P4-25) แสดงให้เห็นว่าสูตร sin/cos จำเป็นจริง — ถ้าใช้ทางลัดหารด้วย slope ผลจะคลาดเคลื่อน
+      เข็มเกือบตรง (AP2) แสดงให้เห็นว่าเมื่อมุมเอียงน้อยมาก ทุกวิธีให้ผลใกล้เคียงกันจนแยกไม่ออก —
+      สองต้นนี้จึงครอบคลุมทั้งช่วงการใช้งานจริงของระบบ</p>
+    <p style="color:var(--muted); font-size:13px; margin-top:8px" data-lang-en>
+      The heavily-tilted pile (P4-25) shows that the sin/cos formulas are genuinely necessary — using the
+      divide-by-slope shortcut produces a measurable error. The near-vertical pile (AP2) shows that at very
+      small tilt angles, every method gives indistinguishably close results. Together, these two piles cover
+      the system's full real-world range.</p>
+  </div>
+
+  <div class="refs">
+    <h3 data-lang-th>ที่มาของสูตร / หลักวิชาที่นำมาประยุกต์</h3>
+    <h3 data-lang-en>Formula Sources / Applied Technical Foundations</h3>
+    <p style="font-size:13.5px; color:var(--muted); margin-bottom:12px" data-lang-th>
+      สูตรทั้งหมดนี้ <b>ไม่ได้อ้างอิงจากไฟล์หรือมาตรฐานของโครงการใดๆ</b> — เป็นการนำหลักตรีโกณและเรขาคณิต
+      ที่เป็นความรู้สากล (มีสอนในหลักสูตรสำรวจ/คณิตศาสตร์ทั่วไป) มาประยุกต์คิดต่อให้ตรงกับลักษณะงานเข็ม
+      โดยทีมงานเอง แล้วจึงพอร์ตเป็นสูตรใน Excel ก่อน ทดสอบตรวจทานกับชุดข้อมูลจริง (P4-25) จนตัวเลขตรงกันทุก
+      ทศนิยม จึงนำมาใช้งานจริง:</p>
+    <p style="font-size:13.5px; color:var(--muted); margin-bottom:12px" data-lang-en>
+      None of these formulas are drawn from any project-specific file or standard — they apply universal
+      trigonometry and geometry (taught in general surveying/mathematics curricula), reasoned through by the
+      team to fit the specifics of pile-checking work, then implemented as formulas in Excel first, tested
+      against real data (P4-25) until every value matched to full decimal precision, and only then put into
+      production:</p>
+    <ul data-lang-th>
+      <li><b>Azimuth จากพิกัด N/E ด้วย ATAN2</b> — หลักสำรวจมาตรฐานสากล: ทิศทาง (azimuth) คำนวณจาก
+      ATAN2(ΔE, ΔN) เพื่อให้ได้มุมครบ 0–360° โดยอัตโนมัติแยกจตุภาคถูกต้อง ไม่ต้องเช็คเงื่อนไขเอง
+      — วิธีนี้เป็นมาตรฐานที่ตำราสำรวจ (traverse computation) และอุปกรณ์ Total Station/GNSS ทุกยี่ห้อใช้ตรงกัน</li>
+      <li><b>ระยะตั้งฉากจากจุดถึงเส้นตรง (ใช้ตรวจทาน Point 3)</b> — เรขาคณิตวิเคราะห์ 3 มิติมาตรฐาน:
+      ระยะจากจุดถึงเส้นตรงหาได้จาก |ขนาด cross product ของเวกเตอร์| ÷ |ความยาวเวกเตอร์ทิศทางเส้น| —
+      สูตรนี้สอนในวิชาคณิตศาสตร์ระดับมหาวิทยาลัย (calculus/analytic geometry) และเป็นวิธีมาตรฐานที่ใช้ใน
+      ซอฟต์แวร์ CAD ทั่วไป</li>
+      <li><b>สัดส่วนความเอียงเข็ม 1:x (batter notation)</b> — ธรรมเนียมงานวิศวกรรมโยธา/ฐานราก: เข็มเอียง
+      เขียนเป็นอัตราส่วนแนวราบต่อแนวดิ่ง เช่น "1:8" หรือ "1H:8V" พบได้ทั้งในคู่มือออกแบบเข็มของหน่วยงานวิศวกรรม
+      (เช่น USACE) และแบบก่อสร้างทั่วไปทั่วโลก — โครงการนี้ก็ใช้สัดส่วนนี้ตรงตามธรรมเนียมสากล</li>
+      <li><b>เทคนิคสัมผัสซ้าย-ขวาแล้วเฉลี่ยมุม = ทิศตรงศูนย์กลาง</b> — อาศัยทฤษฎีบทเรขาคณิตพื้นฐานเรื่อง
+      "เส้นสัมผัสวงกลมจากจุดภายนอก" (Tangent Lines from an External Point): เส้นที่ลากจากจุดภายนอกไปยัง
+      ศูนย์กลางวงกลม จะแบ่งครึ่งมุมระหว่างเส้นสัมผัสทั้งสองเส้นพอดี — เป็นทฤษฎีบทที่พิสูจน์ได้และสอนในเรขาคณิต
+      ระดับมัธยม ทีมงาน<b>นำทฤษฎีบทนี้มาประยุกต์เป็นเทคนิคภาคสนาม</b> (ส่ายกล้องสัมผัสขอบซ้าย-ขวาแล้วเฉลี่ยมุมอ่าน)
+      ซึ่งเป็นขั้นตอนที่ทีมสำรวจโครงการคิดขึ้นเองสำหรับงานนี้โดยเฉพาะ ไม่ใช่ธรรมเนียมสากลตายตัว</li>
+    </ul>
+    <ul data-lang-en>
+      <li><b>Azimuth from N/E coordinates using ATAN2</b> — an international surveying standard: azimuth is
+      computed as ATAN2(ΔE, ΔN) to automatically yield a 0–360° angle in the correct quadrant, with no manual
+      quadrant checks needed — this is the standard used in traverse-computation textbooks and by every
+      Total Station/GNSS instrument brand.</li>
+      <li><b>Perpendicular distance from a point to a line (used to cross-check Point 3)</b> — standard 3D
+      analytic geometry: the distance from a point to a line equals |magnitude of the vector cross product| ÷
+      |length of the line's direction vector| — this formula is taught in university-level mathematics
+      (calculus/analytic geometry) and is a standard method used in general CAD software.</li>
+      <li><b>Pile batter ratio 1:x (batter notation)</b> — a civil/foundation engineering convention: a tilted
+      pile is written as a horizontal-to-vertical ratio, e.g. "1:8" or "1H:8V," found in pile design manuals
+      from engineering bodies (e.g. USACE) and in construction drawings worldwide — this project uses the same
+      ratio following that international convention.</li>
+      <li><b>Left-right tangent sighting, averaged, = direction to center</b> — relies on the basic geometry
+      theorem of "Tangent Lines from an External Point": the line from an external point to a circle's center
+      bisects the angle between the two tangent lines from that point — a provable theorem taught in secondary
+      school geometry. The team <b>applied this theorem as a field technique</b> (panning to touch the left and
+      right edges, then averaging the read angles), a procedure the project's survey team devised specifically
+      for this work, not a fixed international standard.</li>
+    </ul>
+    <div class="note" data-lang-th>
+      <b>สรุปแนวคิด:</b> ส่วนที่เป็น<b>ความรู้สากล</b> (azimuth, ระยะจุด-เส้น, สัดส่วนเอียง, ทฤษฎีบทวงกลม)
+      คือฐานที่ทำให้สูตรน่าเชื่อถือทางคณิตศาสตร์ ส่วนที่เป็น<b>การประยุกต์เฉพาะงาน</b> (จะวัดกี่จุด วัดตรงไหน
+      ใช้เทคนิคสัมผัสซ้าย-ขวาแบบไหน) คือส่วนที่ทีมงานคิดค้นขึ้นเองให้เหมาะกับงานเช็คเข็มกลางทะเล — แล้วนำทั้งสอง
+      ส่วนมาประกอบเป็นสูตรเดียว ทดสอบกับข้อมูลจริงจนมั่นใจ จึงนำมาใช้งาน</div>
+    <div class="note" data-lang-en>
+      <b>Summary:</b> the <b>universal knowledge</b> parts (azimuth, point-to-line distance, tilt ratio, circle
+      theorem) form the mathematical foundation that makes the formulas trustworthy. The <b>task-specific
+      application</b> parts (how many points to measure, where to measure, how to run the left-right tangent
+      technique) are what the team devised themselves to fit offshore pile-checking work — combining both into
+      one formula, tested against real data until confident, and then put into use.</div>
+    <div class="note" style="border-left-color:#2b8a3e" data-lang-th>
+      <b>ตรวจสอบซ้ำได้อิสระ:</b> ทุกค่าที่ระบบคำนวณออกมา (As-built N/E, ศูนย์กลางเข็ม, ตำแหน่งปลายเข็ม)
+      เป็น <b>พิกัดจริงในระบบเดียวกับแบบก่อสร้าง</b> — นำไปพล็อตตรวจสอบในโปรแกรมเขียนแบบ เช่น AutoCAD
+      (จุด POINT หรือ INSERT BLOCK ตามพิกัด N/E) เทียบซ้อนกับตำแหน่งตามแบบได้ทันที เป็นการยืนยันผลด้วยสายตา
+      อีกชั้นหนึ่ง นอกเหนือจากตัวเลขในตาราง เพิ่มความมั่นใจให้ทั้งทีมสำรวจและ consultant ก่อนเซ็นรับรองผล
+    </div>
+    <div class="note" style="border-left-color:#2b8a3e" data-lang-en>
+      <b>Independently re-checkable:</b> every value the system computes (As-built N/E, pile center, toe
+      position) is a <b>real coordinate in the same system as the construction design</b> — it can be plotted
+      in CAD software such as AutoCAD (as a POINT or INSERT BLOCK at the N/E coordinates) and overlaid against
+      the design position immediately, giving a visual confirmation layer beyond the numbers in a table —
+      adding confidence for both the survey team and the consultant before sign-off.
+    </div>
+  </div>
+
+</div>
+
+<footer data-lang-th>Pile Check · เอกสารอธิบายหลักการคำนวณ</footer>
+<footer data-lang-en>Pile Check · Calculation Methodology Document</footer>
+
+<script>
+function setLang(lang){
+  document.documentElement.className = 'lang-' + lang;
+  document.getElementById('btn-th').classList.toggle('active', lang === 'th');
+  document.getElementById('btn-en').classList.toggle('active', lang === 'en');
+  try { localStorage.setItem('doc-lang', lang); } catch(e){}
+}
+(function(){
+  var saved = 'th';
+  try { saved = localStorage.getItem('doc-lang') || 'th'; } catch(e){}
+  setLang(saved);
+})();
+</script>
+
+</body>
+</html>

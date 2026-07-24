@@ -11,7 +11,6 @@ import { useAutoRefresh } from '../lib/useAutoRefresh';
 import { useDataRefresh } from '../lib/dataRefresh';
 
 const UNASSIGNED = '__unassigned__';
-const STAGE_SHORT = { before: 'ก่อนตอก', after: 'หลังตอก' };
 const MIN_K = 0.4;
 const MAX_K = 8;
 const clampK = (k) => Math.min(MAX_K, Math.max(MIN_K, k));
@@ -504,7 +503,8 @@ export default function PlanView({ session, role, onEdit }) {
     setSelectedPile(null);
   }
 
-  const { handleEdit, handleDelete } = useRecordActions({ records, setRecords, onEdit, setToast, stageLabels: STAGE_SHORT });
+  const stageShort = { before: t('common.stage.beforeShort'), after: t('common.stage.afterShort') };
+  const { handleEdit, handleDelete } = useRecordActions({ records, setRecords, onEdit, setToast, stageLabels: stageShort });
 
   // Same wrappers RecordsTable uses around the shared edit/delete handlers —
   // close the Plan modal too, since it's not visible from the table's callers.
@@ -680,8 +680,8 @@ export default function PlanView({ session, role, onEdit }) {
                 )}
               </div>
 
-              <div className="plan-popover-line">{statusLine('ก่อนตอก', popoverInfo.beforePrimary, tolPositionM)}</div>
-              <div className="plan-popover-line">{statusLine('หลังตอก', popoverInfo.afterPrimary, tolPositionM)}</div>
+              <div className="plan-popover-line">{statusLine(stageShort.before, popoverInfo.beforePrimary, tolPositionM)}</div>
+              <div className="plan-popover-line">{statusLine(stageShort.after, popoverInfo.afterPrimary, tolPositionM)}</div>
               {(popoverInfo.afterPrimary || popoverInfo.beforePrimary) && (
                 <button className="btn-secondary" onClick={() => handleViewRecord(popoverInfo)}>
                   {t('plan.viewRecord')}
