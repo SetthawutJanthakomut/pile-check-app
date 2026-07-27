@@ -7,6 +7,7 @@ import { syncPending } from './lib/sync';
 import Login from './pages/Login';
 import SetNewPassword from './pages/SetNewPassword';
 import FormPage from './pages/FormPage';
+import SetOutPage from './pages/SetOutPage';
 import PilesTable from './pages/PilesTable';
 import BenchmarksTable from './pages/BenchmarksTable';
 import RecordsTable from './pages/RecordsTable';
@@ -19,6 +20,7 @@ import { DataRefreshProvider } from './lib/dataRefresh';
 
 const PAGES = [
   { key: 'form', labelKey: 'nav.form' },
+  { key: 'setout', labelKey: 'nav.setout' },
   { key: 'plan', labelKey: 'nav.plan' },
   { key: 'piles', labelKey: 'nav.designPiles' },
   { key: 'benchmarks', labelKey: 'nav.benchmarks' },
@@ -228,6 +230,9 @@ function AppInner() {
           onCancelEdit={() => setEditRecord(null)}
           onEditSaved={() => { setEditRecord(null); setPage('records'); }}
         />
+      </div>
+      <div style={{ display: page === 'setout' ? '' : 'none' }}>
+        <SetOutPage />
       </div>
       <div style={{ display: page === 'plan' ? '' : 'none' }}>
         <PlanView
