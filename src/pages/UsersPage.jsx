@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
+import { ROLE_KEY } from '../lib/statusLabels';
 
 const ROLES = ['viewer', 'recorder', 'admin'];
-const ROLE_KEY = { admin: 'users.role.admin', recorder: 'users.role.recorder', viewer: 'users.role.viewer' };
 const STATUS_KEY = { pending: 'users.status.pending', approved: 'users.status.approved' };
 
 export default function UsersPage({ session }) {

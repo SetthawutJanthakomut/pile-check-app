@@ -78,7 +78,7 @@ function OtherSurveys({ members, primary, tol, canSetPrimary, onSetPrimary }) {
           <div key={m.id} className="other-survey-row">
             <span>{m.surveyor || '—'} · {fmtWhen(m)}</span>
             <span>N {fmt(m.asbuiltN)} E {fmt(m.asbuiltE)}</span>
-            <span className={diff > tol ? 'diff-warn' : ''}>diff {fmt(diff, 3)} m</span>
+            <span className={diff > tol ? 'diff-warn' : ''}>{t('records.modal.diffLabel', { diff: fmt(diff, 3) })}</span>
             {canSetPrimary && (
               <button className="link" onClick={() => onSetPrimary?.(m.id)}>{t('records.modal.setPrimaryBtn')}</button>
             )}

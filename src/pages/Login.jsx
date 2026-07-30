@@ -43,7 +43,7 @@ export default function Login({ onClose }) {
     <div className="login-card">
       <div className="brand">
         <span className="brand-mark">⌖</span>
-        <h1>Pile Check</h1>
+        <h1>{t('common.app.brand')}</h1>
         <p>{t('login.tagline')}</p>
       </div>
       <form onSubmit={submit}>

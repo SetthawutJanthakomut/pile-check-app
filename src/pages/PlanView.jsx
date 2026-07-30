@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 import { effectivePrimary } from '../lib/primary';
-import { crossCheckDiff, posCheckFor } from '../lib/calculations';
+import { crossCheckDiff, posCheckFor, parseIncline } from '../lib/calculations';
 import { fmt } from '../lib/format';
 import RecordDetailModal from '../components/RecordDetailModal';
 import { getColumns } from './RecordsTable';
@@ -90,9 +90,47 @@ function statusLine(label, primary, tolPositionM) {
   return primary ? `${label}: ${posCheckFor(primary.totalDev, tolPositionM)} ${fmt(primary.totalDev, 3)} m` : `${label}: —`;
 }
 
+// Rake direction line: short fixed-length whisker (not scaled to the actual
+// batter ratio — plan view only needs to show direction), drawn along the
+// compass bearing using the same N/E-to-screen-angle convention as
+// proj.toXY (bearing 0 = up/north, 90 = right/east). Starts at the marker's
+// own edge and extends outward only, so it stays contained near its pile
+// even on the tightest-spaced grids, with the arrowhead at the outward end.
+const RAKE_COLOR = 'var(--ink-soft)';
+const D2R = Math.PI / 180;
+
+function RakeIndicator({ x, y, r, bearingDeg, hint }) {
+  const lineLen = r * 1.3;
+  const rad = bearingDeg * D2R;
+  const ux = Math.sin(rad), uy = -Math.cos(rad);
+  const px = -uy, py = ux;
+  const startX = x + ux * r, startY = y + uy * r;
+  const tipX = x + ux * (r + lineLen), tipY = y + uy * (r + lineLen);
+  const ah = r * 0.45, aw = r * 0.3;
+  const baseX = tipX - ux * ah, baseY = tipY - uy * ah;
+  const p1x = baseX + px * aw, p1y = baseY + py * aw;
+  const p2x = baseX - px * aw, p2y = baseY - py * aw;
+  // The pile name label sits to the right of the marker (x + r + 3); when
+  // the rake also points rightward, push the degree label a bit further out
+  // so the two don't land on top of each other.
+  const labelDist = r + lineLen + (ux > 0.3 ? 10 : 6);
+  const labelX = x + ux * labelDist, labelY = y + uy * labelDist;
+  return (
+    <g className="plan-rake">
+      <title>{hint}</title>
+      <line x1={startX} y1={startY} x2={baseX} y2={baseY} stroke={RAKE_COLOR} strokeWidth={1.2} vectorEffect="non-scaling-stroke" />
+      <polygon points={`${tipX},${tipY} ${p1x},${p1y} ${p2x},${p2y}`} fill={RAKE_COLOR} />
+      <text x={labelX} y={labelY} textAnchor="middle" fontSize={8} fill={RAKE_COLOR}>{`${Math.round(bearingDeg)}°`}</text>
+    </g>
+  );
+}
+
 function PileMarker({ info, proj, r, showLabel, dim, pulsing, onSelect }) {
+  const { t } = useTranslation();
   const { pile, status, beforeOver, disagree } = info;
   const { x, y } = proj.toXY(Number(pile.coordinate_pe), Number(pile.coordinate_pn));
+  const inc = parseIncline(pile.incline);
+  const showRake = !inc.vertical && inc.ratio != null && Number.isFinite(Number(pile.batter_bearing_deg));
 
   let fillEl;
   if (status === 'afterOk' || status === 'afterOver') {
@@ -114,6 +152,9 @@ function PileMarker({ info, proj, r, showLabel, dim, pulsing, onSelect }) {
   return (
     <g className={`plan-marker${dim ? ' dim' : ''}`} onClick={(e) => { e.stopPropagation(); onSelect(pile.pile_no); }}>
       {fillEl}
+      {showRake && (
+        <RakeIndicator x={x} y={y} r={r} bearingDeg={Number(pile.batter_bearing_deg)} hint={t('plan.rakeHint')} />
+      )}
       {beforeOver && (
         <circle cx={x} cy={y} r={r + 2} fill="none" stroke="var(--fail)" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
       )}
@@ -647,7 +688,7 @@ export default function PlanView({ session, role, onEdit }) {
                 {t('plan.zone')}: {popoverInfo.pile.zone || '—'} · {t('plan.incline')}: {popoverInfo.pile.incline || '—'}
               </p>
               <p className="hint mono">
-                PN {fmt(Number(popoverInfo.pile.coordinate_pn), 3)} / PE {fmt(Number(popoverInfo.pile.coordinate_pe), 3)}
+                {t('designPiles.col.coordinatePn')} {fmt(Number(popoverInfo.pile.coordinate_pn), 3)} / {t('designPiles.col.coordinatePe')} {fmt(Number(popoverInfo.pile.coordinate_pe), 3)}
               </p>
 
               <div className="plan-popover-design">

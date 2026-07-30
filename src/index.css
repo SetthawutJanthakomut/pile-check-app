@@ -365,6 +365,57 @@ body {
 .verdict-row .stamp.pass { background: rgba(43, 138, 62, 0.15); }
 .verdict-row .stamp.fail { background: rgba(201, 42, 42, 0.18); }
 
+/* ---------- setout: design + setup summary card ---------- */
+.setout-summary-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.setout-pile-no { font: 700 16px var(--mono); color: var(--accent); }
+.setout-zone {
+  font: 600 12px var(--font); color: var(--ink-soft);
+  background: var(--paper); border: 1px solid var(--line);
+  border-radius: 999px; padding: 3px 10px;
+}
+.setout-incline-badge {
+  font: 600 12px var(--mono); color: var(--ink);
+  background: var(--paper); border: 1px solid var(--line);
+  border-radius: 999px; padding: 3px 10px; margin-left: auto;
+}
+.setout-summary-row4, .setout-summary-row6 {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 8px 10px; font-size: 13px;
+}
+.setout-summary-row4 span, .setout-summary-row6 span {
+  display: block; font-size: 10px; color: var(--ink-soft); font-family: var(--font);
+}
+.setout-summary-divider { height: 1px; background: var(--line); margin: 10px 0; }
+
+/* ---------- setout: result card (Card 2) ---------- */
+.setout-result-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  border-bottom: 1px solid #1f3446; padding-bottom: 8px; margin-bottom: 10px;
+}
+.setout-result-title { font-size: 12px; letter-spacing: 0.1em; color: var(--lcd-dim); }
+.setout-zt-pill {
+  font: 600 12px var(--mono); color: var(--lcd-text);
+  background: rgba(255, 255, 255, 0.08); border-radius: 999px;
+  padding: 4px 10px; white-space: nowrap;
+}
+.setout-point { border-radius: 8px; padding: 10px; margin-bottom: 10px; border: 1px solid; }
+.setout-point:last-child { margin-bottom: 0; }
+.setout-point-centre { background: rgba(91, 155, 255, 0.10); border-color: rgba(91, 155, 255, 0.35); }
+.setout-point-left { background: rgba(255, 182, 72, 0.10); border-color: rgba(255, 182, 72, 0.35); }
+.setout-point-right { background: rgba(74, 222, 128, 0.10); border-color: rgba(74, 222, 128, 0.35); }
+.setout-point-head { display: flex; align-items: baseline; gap: 6px; margin-bottom: 8px; }
+.setout-point-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.setout-point-centre .setout-point-dot { background: #5b9bff; }
+.setout-point-left .setout-point-dot { background: #ffb648; }
+.setout-point-right .setout-point-dot { background: #4ade80; }
+.setout-point-label { font: 700 13px var(--font); color: var(--lcd-text); }
+.setout-point-primary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 8px; margin-bottom: 6px; }
+.setout-point-primary span { display: block; font-size: 10px; color: var(--lcd-dim); letter-spacing: 0.05em; }
+.setout-point-primary b { display: block; font: 700 15px var(--mono); color: var(--lcd-text); margin-top: 2px; }
+.setout-point-secondary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 8px; opacity: 0.75; }
+.setout-point-secondary span { display: block; font-size: 9px; color: var(--lcd-dim); }
+.setout-point-secondary b { display: block; font: 400 11.5px var(--mono); color: var(--lcd-dim); margin-top: 1px; }
+
 /* ---------- plan view (deviation sketch) ---------- */
 .plan-view {
   margin: 4px 0 10px;

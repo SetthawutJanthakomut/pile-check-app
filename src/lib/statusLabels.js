@@ -16,3 +16,4 @@ export const SEABED_DIFF_KEY = {
   'Deeper (scour)': 'status.deeperScour', 'Shallower (silting)': 'status.shallowerSilting',
 };
 export const SEABED_SOURCE_KEY = { measured: 'status.measured', design: 'status.design' };
+export const ROLE_KEY = { admin: 'users.role.admin', recorder: 'users.role.recorder', viewer: 'users.role.viewer' };

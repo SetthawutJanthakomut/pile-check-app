@@ -17,6 +17,7 @@ import UsersPage from './pages/UsersPage';
 import HistoryPage from './pages/HistoryPage';
 import TopBarRefresh from './components/TopBarRefresh';
 import { DataRefreshProvider } from './lib/dataRefresh';
+import { ROLE_KEY } from './lib/statusLabels';
 
 const PAGES = [
   { key: 'form', labelKey: 'nav.form' },
@@ -184,7 +185,7 @@ function AppInner() {
           <span className="topbar-label">{t('nav.methodology')}</span>
         </a>
         <span className="topbar-user">
-          {session ? `${session.user.email} · ${role ?? '…'}` : ''}
+          {session ? `${session.user.email} · ${role ? t(ROLE_KEY[role]) : '…'}` : ''}
         </span>
         {(pendingCount > 0 || pendingPhotoCount > 0) && (
           <span className="pending-indicator">
@@ -232,7 +233,7 @@ function AppInner() {
         />
       </div>
       <div style={{ display: page === 'setout' ? '' : 'none' }}>
-        <SetOutPage />
+        <SetOutPage session={session} />
       </div>
       <div style={{ display: page === 'plan' ? '' : 'none' }}>
         <PlanView
