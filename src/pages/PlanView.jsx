@@ -14,6 +14,14 @@ const UNASSIGNED = '__unassigned__';
 const MIN_K = 0.4;
 const MAX_K = 8;
 const clampK = (k) => Math.min(MAX_K, Math.max(MIN_K, k));
+// Marker radius is never more than this fraction of the on-screen distance
+// to the nearest other pile, so tightly-spaced rows (e.g. a trestle pier at
+// ~1.5-2.5m centres) don't blob together — see baseRadius/nearestPileDist.
+const NEIGHBOR_RADIUS_FRACTION = 0.375;
+// Floor so markers stay tappable on mobile even when that means neighbors
+// touch/overlap at extreme density (legibility of separation loses to
+// having a hittable target).
+const MIN_TOUCH_RADIUS_PX = 11;
 
 // Rounds a value up to a "nice" 1/2/5 * 10^n number, for grid spacing and
 // the scale bar so they read as round metres instead of arbitrary decimals.
@@ -120,7 +128,7 @@ function RakeIndicator({ x, y, r, bearingDeg, hint }) {
       <title>{hint}</title>
       <line x1={startX} y1={startY} x2={baseX} y2={baseY} stroke={RAKE_COLOR} strokeWidth={1.2} vectorEffect="non-scaling-stroke" />
       <polygon points={`${tipX},${tipY} ${p1x},${p1y} ${p2x},${p2y}`} fill={RAKE_COLOR} />
-      <text x={labelX} y={labelY} textAnchor="middle" fontSize={8} fill={RAKE_COLOR}>{`${Math.round(bearingDeg)}°`}</text>
+      <text x={labelX} y={labelY} textAnchor="middle" fontSize={Math.max(6, r * 0.75)} fill={RAKE_COLOR}>{`${Math.round(bearingDeg)}°`}</text>
     </g>
   );
 }
@@ -130,7 +138,10 @@ function PileMarker({ info, proj, r, showLabel, dim, pulsing, onSelect }) {
   const { pile, status, beforeOver, disagree } = info;
   const { x, y } = proj.toXY(Number(pile.coordinate_pe), Number(pile.coordinate_pn));
   const inc = parseIncline(pile.incline);
-  const showRake = !inc.vertical && inc.ratio != null && Number.isFinite(Number(pile.batter_bearing_deg));
+  // Gated on the same density threshold as the pile-name label (showLabel) —
+  // at tight spacing the arrow+label would just add noise, so they hide
+  // together rather than shrinking into illegibility.
+  const showRake = showLabel && !inc.vertical && inc.ratio != null && Number.isFinite(Number(pile.batter_bearing_deg));
 
   let fillEl;
   if (status === 'afterOk' || status === 'afterOver') {
@@ -451,11 +462,36 @@ export default function PlanView({ session, role, onEdit }) {
     }
   }
 
+  // Closest on-screen distance between any two visible piles, in the same
+  // pre-scale ("world") units proj.toXY produces — independent of cam.k
+  // since pan/zoom scales marker radius and pile spacing by the same
+  // factor. Recomputed only when the visible piles or projection change
+  // (i.e. once per render pass), not on every pan/zoom tick.
+  const nearestPileDist = useMemo(() => {
+    if (!proj || visiblePileInfo.length < 2) return Infinity;
+    const pts = visiblePileInfo.map(({ pile }) => proj.toXY(Number(pile.coordinate_pe), Number(pile.coordinate_pn)));
+    let min = Infinity;
+    for (let i = 0; i < pts.length; i++) {
+      for (let j = i + 1; j < pts.length; j++) {
+        const d = Math.hypot(pts[i].x - pts[j].x, pts[i].y - pts[j].y);
+        if (d < min) min = d;
+      }
+    }
+    return min;
+  }, [proj, visiblePileInfo]);
+
   const baseRadius = useMemo(() => {
     if (!proj || !visiblePileInfo.length) return 10;
     const avgSpacingPx0 = Math.sqrt((proj.drawW * proj.drawH) / visiblePileInfo.length);
-    return Math.min(18, Math.max(10, avgSpacingPx0 * 0.28));
-  }, [proj, visiblePileInfo.length]);
+    let r = Math.min(18, Math.max(10, avgSpacingPx0 * 0.28));
+    if (Number.isFinite(nearestPileDist)) {
+      r = Math.min(r, nearestPileDist * NEIGHBOR_RADIUS_FRACTION);
+    }
+    // Touch-target floor is a fixed screen-pixel size, so unlike the caps
+    // above it must be converted into world units against the current zoom.
+    const minWorldRadius = MIN_TOUCH_RADIUS_PX / cam.k;
+    return Math.max(r, minWorldRadius);
+  }, [proj, visiblePileInfo.length, nearestPileDist, cam.k]);
 
   // Labels get crowded when many piles sit close together at the current
   // zoom — hide them below a spacing threshold and reveal on zoom-in.
