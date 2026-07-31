@@ -27,6 +27,8 @@
   .langtoggle button{font:600 12px 'IBM Plex Mono',monospace; padding:7px 14px; background:transparent;
               color:#9fb3c8; border:none; cursor:pointer}
   .langtoggle button.active{background:var(--accent); color:#fff}
+  .backlink{position:absolute; top:18px; left:18px; font-size:12px; color:#9fb3c8; text-decoration:none}
+  .backlink:hover{color:#fff}
 
   .intro{padding:40px 0 8px}
   .intro h2{font-size:20px; margin-bottom:10px}
@@ -88,6 +90,7 @@
 <body>
 
 <div class="cover">
+  <a class="backlink" href="methodology-setout.html"><span data-lang-en>Setting Out methodology →</span><span data-lang-th>→ หลักการคำนวณ Setting Out</span></a>
   <div class="langtoggle">
     <button id="btn-th" class="active" onclick="setLang('th')">TH</button>
     <button id="btn-en" onclick="setLang('en')">EN</button>
