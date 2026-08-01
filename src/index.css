@@ -378,9 +378,19 @@ body {
   background: var(--paper); border: 1px solid var(--line);
   border-radius: 999px; padding: 3px 10px; margin-left: auto;
 }
-.setout-summary-row4, .setout-summary-row6 {
+.setout-summary-row4 {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
   gap: 8px 10px; font-size: 13px;
+}
+/* Fixed 2/3-column counts (not auto-fit) so 6 items always divide evenly
+   into full rows — auto-fit could strand the last 2 items in a row with
+   unused columns, leaving dead space on the right. */
+.setout-summary-row6 {
+  display: grid; grid-template-columns: repeat(2, 1fr);
+  gap: 8px 10px; font-size: 13px;
+}
+@media (min-width: 380px) {
+  .setout-summary-row6 { grid-template-columns: repeat(3, 1fr); }
 }
 .setout-summary-row4 span, .setout-summary-row6 span {
   display: block; font-size: 10px; color: var(--ink-soft); font-family: var(--font);
@@ -393,6 +403,17 @@ body {
   border-bottom: 1px solid #1f3446; padding-bottom: 8px; margin-bottom: 10px;
 }
 .setout-result-title { font-size: 12px; letter-spacing: 0.1em; color: var(--lcd-dim); }
+/* Zt_A/Zt_B differentiator: distinct accent border + badge per block so the
+   two stacked result cards for a raked pile are distinguishable at a glance. */
+.setout-result-a { border-left: 3px solid #2dd4bf; }
+.setout-result-b { border-left: 3px solid #c084fc; }
+.setout-block-badge {
+  display: inline-block; margin-left: 8px;
+  font: 700 10px var(--mono); letter-spacing: 0.04em;
+  padding: 2px 7px; border-radius: 999px;
+}
+.setout-block-badge-a { color: #2dd4bf; background: rgba(45, 212, 191, 0.18); }
+.setout-block-badge-b { color: #c084fc; background: rgba(192, 132, 252, 0.18); }
 .setout-zt-pill {
   font: 600 12px var(--mono); color: var(--lcd-text);
   background: rgba(255, 255, 255, 0.08); border-radius: 999px;
@@ -412,9 +433,13 @@ body {
 .setout-point-primary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 8px; margin-bottom: 6px; }
 .setout-point-primary span { display: block; font-size: 10px; color: var(--lcd-dim); letter-spacing: 0.05em; }
 .setout-point-primary b { display: block; font: 700 15px var(--mono); color: var(--lcd-text); margin-top: 2px; }
-.setout-point-secondary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 8px; opacity: 0.75; }
-.setout-point-secondary span { display: block; font-size: 9px; color: var(--lcd-dim); }
-.setout-point-secondary b { display: block; font: 400 11.5px var(--mono); color: var(--lcd-dim); margin-top: 1px; }
+/* Was opacity:0.75 over var(--lcd-dim); compounded with the tinted point
+   backgrounds that dropped contrast below WCAG AA's 4.5:1 for small text
+   (~3.1:1 measured). Opaque #9db3c7 text keeps the "secondary" look while
+   clearing 4.5:1 against all three point-background tints. */
+.setout-point-secondary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 8px; }
+.setout-point-secondary span { display: block; font-size: 9px; color: #9db3c7; }
+.setout-point-secondary b { display: block; font: 400 11.5px var(--mono); color: #9db3c7; margin-top: 1px; }
 
 /* ---------- plan view (deviation sketch) ---------- */
 .plan-view {

@@ -5,9 +5,22 @@ import { localdb } from '../lib/localdb';
 import { parseIncline } from '../lib/calculations';
 import { computeSetout, toDMS } from '../lib/setoutCalc';
 import SearchSelect from '../components/SearchSelect';
+import { captureNodeAsPng, sanitizeForFilename } from '../reports/captureImage';
 
 const fmt = (v, d = 3) => (v == null || Number.isNaN(v) ? '—' : Number(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }));
 const num = (s) => (s === '' || s == null ? null : Number(s));
+
+function timestampForFilename() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
+}
+
+// Matches PileReport.jsx's fmtGenerated — date part UTC, time part local.
+function footerTimestamp() {
+  const d = new Date();
+  return `${d.toISOString().slice(0, 10)} ${d.toTimeString().slice(0, 5)}`;
+}
 
 const ALL_ZONES = '__all__';
 
@@ -50,6 +63,9 @@ export default function SetOutPage({ session }) {
   const skipNextSaveRef = useRef(false);
   const restoreZtSkipRef = useRef(false);
   const mountedRef = useRef(false);
+  const captureRef = useRef(null);
+  const [savingImage, setSavingImage] = useState(false);
+  const [saveImageError, setSaveImageError] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -167,6 +183,23 @@ export default function SetOutPage({ session }) {
     return computeSetout(pile, num(ztB), setup);
   }, [ready, inc, ztB, pile, setup]);
 
+  const canSaveImage = !!((inc?.vertical && singleResult) || (inc && !inc.vertical && (resultA || resultB)));
+
+  async function handleSaveImage() {
+    if (!captureRef.current) return;
+    setSavingImage(true);
+    setSaveImageError(null);
+    try {
+      const filename = `SettingOut_${sanitizeForFilename(pile.pile_no)}_${timestampForFilename()}.png`;
+      const footerText = `${t('common.app.brand')} · ${pile.pile_no} · ${footerTimestamp()}`;
+      await captureNodeAsPng(captureRef.current, filename, { padding: 20, footerText });
+    } catch (err) {
+      setSaveImageError(err.message);
+    } finally {
+      setSavingImage(false);
+    }
+  }
+
   return (
     <div className="page">
       <p className="hint">{t('setout.calcOnlyNote')}</p>
@@ -253,20 +286,27 @@ export default function SetOutPage({ session }) {
 
       {pile && !ready && <p className="hint">{t('setout.incompleteHint')}</p>}
 
-      {ready && (
-        <SetoutSummaryCard pile={pile} inc={inc} stn={stn} bs={bs} hi={hi} setup={setup} bsAzimuth={bsAzimuth} />
-      )}
+      <div ref={captureRef}>
+        {ready && (
+          <SetoutSummaryCard pile={pile} inc={inc} stn={stn} bs={bs} hi={hi} setup={setup} bsAzimuth={bsAzimuth} />
+        )}
 
-      {inc?.vertical && singleResult && (
-        <SetoutResultBlock zt={num(zt)} result={singleResult} />
-      )}
+        {inc?.vertical && singleResult && (
+          <SetoutResultBlock zt={num(zt)} result={singleResult} />
+        )}
 
-      {inc && !inc.vertical && (
-        <>
-          {resultA && <SetoutResultBlock zt={num(ztA)} result={resultA} />}
-          {resultB && <SetoutResultBlock zt={num(ztB)} result={resultB} />}
-        </>
-      )}
+        {inc && !inc.vertical && (
+          <>
+            {resultA && <SetoutResultBlock variant="a" zt={num(ztA)} result={resultA} />}
+            {resultB && <SetoutResultBlock variant="b" zt={num(ztB)} result={resultB} />}
+          </>
+        )}
+      </div>
+
+      <button type="button" className="btn-secondary" disabled={!canSaveImage || savingImage} onClick={handleSaveImage}>
+        {savingImage ? t('records.modal.preparingBtn') : t('setout.saveImageBtn')}
+      </button>
+      {saveImageError && <p className="form-err">{saveImageError}</p>}
     </div>
   );
 }
@@ -301,13 +341,17 @@ function SetoutSummaryCard({ pile, inc, stn, bs, hi, setup, bsAzimuth }) {
   );
 }
 
-function SetoutResultBlock({ zt, result }) {
+function SetoutResultBlock({ variant, zt, result }) {
   const { t } = useTranslation();
+  const badgeKey = variant === 'a' ? 'setout.blockABadge' : variant === 'b' ? 'setout.blockBBadge' : null;
   return (
-    <section className="readout setout-result">
+    <section className={`readout setout-result${variant ? ` setout-result-${variant}` : ''}`}>
       <div className="setout-result-head">
-        <span className="setout-result-title">{t('setout.resultTitle')}</span>
-        <span className="setout-zt-pill mono">{t('setout.ztPill')} = {fmt(zt)} m</span>
+        <span className="setout-result-title">
+          {t('setout.resultTitle')}
+          {badgeKey && <span className={`setout-block-badge setout-block-badge-${variant}`}>{t(badgeKey)}</span>}
+        </span>
+        <span className="setout-zt-pill mono">{t('setout.ztPill')} = {fmt(zt)}</span>
       </div>
       <PointBlock
         variant="centre"
