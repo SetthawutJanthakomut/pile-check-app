@@ -1024,8 +1024,8 @@ const savedLang = typeof localStorage !== 'undefined' ? localStorage.getItem('la
 
 i18n.use(initReactI18next).init({
   resources,
-  lng: savedLang || 'th',
-  fallbackLng: 'th',
+  lng: savedLang || 'en',
+  fallbackLng: 'en',
   interpolation: { escapeValue: false },
 });
 

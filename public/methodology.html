@@ -921,8 +921,8 @@ function setLang(lang){
   try { localStorage.setItem('doc-lang', lang); } catch(e){}
 }
 (function(){
-  var saved = 'th';
-  try { saved = localStorage.getItem('doc-lang') || 'th'; } catch(e){}
+  var saved = 'en';
+  try { saved = localStorage.getItem('doc-lang') || 'en'; } catch(e){}
   setLang(saved);
 })();
 </script>
