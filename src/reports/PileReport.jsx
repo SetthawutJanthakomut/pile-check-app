@@ -97,10 +97,11 @@ export default function PileReport({ record, pile, station, backsight, tol, sibl
         <div><div className="lbl">Pile No.</div><div className="val mono">{pile.pile_no}</div></div>
         <div><div className="lbl">Diameter</div><div className="val mono">{pile.dia_mm != null ? `${Number(pile.dia_mm).toLocaleString('en-US')} mm` : '—'}</div></div>
         <div><div className="lbl">Design N (PN)</div><div className="val mono">{fmt(pile.coordinate_pn)}</div></div>
-        <div><div className="lbl">Cut-off EL.</div><div className="val mono">{fmt(pile.pile_top_level)}</div></div>
+        <div><div className="lbl">Design E (PE)</div><div className="val mono">{fmt(pile.coordinate_pe)}</div></div>
         <div><div className="lbl">Incline</div><div className="val mono">{pile.incline}</div></div>
         <div><div className="lbl">Length</div><div className="val mono">{pile.length_m != null ? `${fmt(pile.length_m, 2)} m` : '—'}</div></div>
-        <div><div className="lbl">Design E (PE)</div><div className="val mono">{fmt(pile.coordinate_pe)}</div></div>
+        <div><div className="lbl">Coating length · ความยาวเคลือบ</div><div className="val mono">{pile.coating_length_m != null ? `${fmt(pile.coating_length_m, 2)} m` : '—'}</div></div>
+        <div><div className="lbl">Cut-off EL.</div><div className="val mono">{fmt(pile.pile_top_level)}</div></div>
         <div><div className="lbl">Pile Tip Design · ปลายเข็มตามแบบ</div><div className="val mono">{fmt(pile.pile_toe_level)}</div></div>
         {isBattered && (
           <div><div className="lbl">Batter Az. <span style={{ fontWeight: 400 }}>(battered piles only · เฉพาะเข็มเอียง)</span></div>

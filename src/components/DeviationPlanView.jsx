@@ -20,8 +20,10 @@ export default function DeviationPlanView({ diffN, diffE, totalDev, tolerance, p
   const { t } = useTranslation();
   const azimuth = Math.round((Math.atan2(diffE, diffN) * (180 / Math.PI) + 360) % 360);
   const maxView = Math.max(tolerance ?? totalDev, totalDev, 0.02) * 1.4;
-  const x = diffE;
-  const y = -diffN;
+  // North points to the LEFT of the page (matches the project drawings):
+  // +N -> screen left, +E -> screen up.
+  const x = -diffN;
+  const y = -diffE;
   const color = posCheck === 'OK' ? PASS_COLOR : FAIL_COLOR;
   const labelAnchor = x >= 0 ? 'start' : 'end';
   const labelDx = x >= 0 ? maxView * 0.07 : -maxView * 0.07;
@@ -41,14 +43,14 @@ export default function DeviationPlanView({ diffN, diffE, totalDev, tolerance, p
       >
         <line x1="0" y1={-maxView} x2="0" y2={maxView} stroke={AXIS_COLOR} strokeWidth={maxView * 0.012} strokeDasharray={`${maxView * 0.04} ${maxView * 0.04}`} />
         <line x1={-maxView} y1="0" x2={maxView} y2="0" stroke={AXIS_COLOR} strokeWidth={maxView * 0.012} strokeDasharray={`${maxView * 0.04} ${maxView * 0.04}`} />
-        <text x="0" y={-maxView * 0.88} textAnchor="middle" fontSize={fontSize} fill={MUTED_COLOR}>{t('common.deviationPlan.northLabel')}</text>
+        <text x={-maxView * 0.97} y={-maxView * 0.05} textAnchor="start" fontSize={fontSize} fill={MUTED_COLOR}>← N</text>
         {tolerance != null && (
           <circle cx="0" cy="0" r={tolerance} fill="none" stroke={AXIS_COLOR} strokeWidth={maxView * 0.02} strokeDasharray={`${maxView * 0.05} ${maxView * 0.05}`} />
         )}
         <circle cx="0" cy="0" r={maxView * 0.05} fill="none" stroke={PASS_COLOR} strokeWidth={maxView * 0.03} />
         <line x1={-maxView * 0.09} y1="0" x2={maxView * 0.09} y2="0" stroke={PASS_COLOR} strokeWidth={maxView * 0.03} />
         <line x1="0" y1={-maxView * 0.09} x2="0" y2={maxView * 0.09} stroke={PASS_COLOR} strokeWidth={maxView * 0.03} />
-        <text x={-maxView * 0.55} y={maxView * 0.25} fontSize={fontSize} fill={PASS_COLOR}>{t('common.deviationPlan.designCenter')}</text>
+        <text x={maxView * 0.12} y={maxView * 0.25} fontSize={fontSize} fill={PASS_COLOR}>{t('common.deviationPlan.designCenter')}</text>
         <line x1="0" y1="0" x2={x} y2={y} stroke={color} strokeWidth={maxView * 0.035} />
         <circle cx={x} cy={y} r={maxView * 0.06} fill={color} />
         <text x={x + labelDx} y={y + labelDy} fontSize={fontSize} fill={color} textAnchor={labelAnchor}>{t('common.deviationPlan.asBuilt')}</text>

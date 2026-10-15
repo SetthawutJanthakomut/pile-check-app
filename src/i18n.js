@@ -399,6 +399,7 @@ const resources = {
           changedBy: 'ผู้แก้ไข',
         },
         action: {
+          insert: 'สร้าง',
           update: 'แก้ไข',
           delete: 'ลบ',
         },
@@ -907,6 +908,7 @@ const resources = {
           changedBy: 'Changed by',
         },
         action: {
+          insert: 'Create',
           update: 'Update',
           delete: 'Delete',
         },
