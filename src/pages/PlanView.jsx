@@ -101,7 +101,7 @@ function statusLine(label, primary, tolPositionM) {
 // Rake direction line: short fixed-length whisker (not scaled to the actual
 // batter ratio — plan view only needs to show direction), drawn along the
 // compass bearing using the same N/E-to-screen-angle convention as
-// proj.toXY (bearing 0 = up/north, 90 = right/east). Starts at the marker's
+// proj.toXY (north-left frame: bearing 0 = left/north, 90 = up/east). Starts at the marker's
 // own edge and extends outward only, so it stays contained near its pile
 // even on the tightest-spaced grids, with the arrowhead at the outward end.
 const RAKE_COLOR = 'var(--ink-soft)';
@@ -110,7 +110,8 @@ const D2R = Math.PI / 180;
 function RakeIndicator({ x, y, r, bearingDeg, hint }) {
   const lineLen = r * 1.3;
   const rad = bearingDeg * D2R;
-  const ux = Math.sin(rad), uy = -Math.cos(rad);
+  // North-left screen frame: bearing 0 (N) = left, 90 (E) = up.
+  const ux = -Math.cos(rad), uy = -Math.sin(rad);
   const px = -uy, py = ux;
   const startX = x + ux * r, startY = y + uy * r;
   const tipX = x + ux * (r + lineLen), tipY = y + uy * (r + lineLen);
@@ -319,20 +320,22 @@ export default function PlanView({ session, role, onEdit }) {
   }, [visiblePileInfo]);
 
   // Auto-fit projection: maps design E/N (metres) to container-pixel space at
-  // cam = {x:0, y:0, k:1} — north up, so higher N maps to a smaller screen y.
+  // cam = {x:0, y:0, k:1} — north LEFT, so higher N maps to a smaller screen x.
   const proj = useMemo(() => {
     if (!bbox || !size.w || !size.h) return null;
     const spanE = bbox.maxE - bbox.minE;
     const spanN = bbox.maxN - bbox.minN;
-    const s0 = Math.min(size.w / spanE, size.h / spanN);
-    const drawW = spanE * s0, drawH = spanN * s0;
+    // North points to the LEFT of the screen (matches the project drawings):
+    // +N -> screen left, +E -> screen up. So N spans the width, E the height.
+    const s0 = Math.min(size.w / spanN, size.h / spanE);
+    const drawW = spanN * s0, drawH = spanE * s0;
     const offX = (size.w - drawW) / 2;
     const offY = (size.h - drawH) / 2;
     return {
       s0,
       drawW,
       drawH,
-      toXY: (e, n) => ({ x: offX + (e - bbox.minE) * s0, y: offY + (bbox.maxN - n) * s0 }),
+      toXY: (e, n) => ({ x: offX + (bbox.maxN - n) * s0, y: offY + (bbox.maxE - e) * s0 }),
     };
   }, [bbox, size]);
 
@@ -677,10 +680,10 @@ export default function PlanView({ session, role, onEdit }) {
                     />
                   ))}
                 </g>
-                <g transform={`translate(${size.w - 34} 34)`}>
-                  <line x1={0} y1={14} x2={0} y2={-14} stroke="var(--ink)" strokeWidth={2} />
-                  <polygon points="0,-16 6,-4 -6,-4" fill="var(--ink)" />
-                  <text x={0} y={26} textAnchor="middle" fontSize={11} fontWeight={700} fill="var(--ink)">N</text>
+                <g transform={`translate(${size.w - 44} 30)`}>
+                  <line x1={14} y1={0} x2={-14} y2={0} stroke="var(--ink)" strokeWidth={2} />
+                  <polygon points="-16,0 -4,-6 -4,6" fill="var(--ink)" />
+                  <text x={24} y={4} textAnchor="middle" fontSize={11} fontWeight={700} fill="var(--ink)">N</text>
                 </g>
                 {scaleBar && (
                   <g transform={`translate(16 ${size.h - 16})`}>
