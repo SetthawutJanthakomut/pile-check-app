@@ -177,11 +177,21 @@ function PileMarker({ info, proj, r, showLabel, dim, pulsing, onSelect }) {
       {pulsing && (
         <circle cx={x} cy={y} r={r} fill="none" stroke="var(--accent)" strokeWidth={2} className="plan-pulse-ring" />
       )}
-      {showLabel && (
-        <text x={x + r + 3} y={y + 3.5} className="plan-label" fontSize={Math.max(9, r * 0.9)}>
-          {pile.pile_no}
-        </text>
-      )}
+      {showLabel && (() => {
+        // North-left layout puts piles of one pier side-by-side horizontally, so a
+        // horizontal name to the right collides with the next pile. Write the name
+        // vertically, above or below the marker — on the side the rake arrow does
+        // NOT point to (rake points down when bearing is 180..360°).
+        const rakeDown = showRake && Math.sin(Number(pile.batter_bearing_deg) * D2R) < -0.2;
+        const ay = rakeDown ? y - r - 6 : y + r + 6;
+        return (
+          <text x={x} y={ay} className="plan-label" fontSize={Math.max(9, r * 0.9)}
+            transform={`rotate(-90 ${x} ${ay})`}
+            textAnchor={rakeDown ? 'start' : 'end'} dominantBaseline="central">
+            {pile.pile_no}
+          </text>
+        );
+      })()}
     </g>
   );
 }
