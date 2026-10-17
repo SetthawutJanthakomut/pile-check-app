@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>As-built 3-Point Method (P1 / P2 / P3)</title>
+<style>
+  :root{--ink:#1d2733;--muted:#5b6b7c;--line:#cfd8e3;--p1:#e8590c;--p2:#1971c2;--p3:#9c36b5;--ok:#2b8a3e;--bad:#c92a2a;--pile:#8c96a3;--coat:#1f3a68;--sea:#d0ebff;--soil:#e9dcc6;--tan:#0b7285}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Sarabun","Segoe UI",Tahoma,Arial,sans-serif;color:var(--ink);background:#f4f6f9}
+  header{background:#16202c;color:#fff;padding:14px 22px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+  header h1{margin:0;font-size:20px}
+  header p{margin:4px 0 0;color:#aab7c6;font-size:13px}
+  .lang button{background:transparent;color:#aab7c6;border:1px solid #3b4a5c;padding:5px 10px;font-size:13px}
+  .lang button.on{background:#e8590c;color:#fff;border-color:#e8590c}
+  .wrap{max-width:1180px;margin:0 auto;padding:16px}
+  .stage{display:grid;grid-template-columns:1.55fr 1fr;gap:14px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px}
+  .card h3{margin:2px 0 6px;font-size:13px;color:var(--muted);letter-spacing:.04em}
+  svg{width:100%;height:auto;display:block}
+  .step-box{margin-top:14px;display:grid;grid-template-columns:1.55fr 1fr;gap:14px}
+  .explain h2{margin:0 0 6px;font-size:19px}
+  .explain p{margin:6px 0;line-height:1.6;font-size:15px}
+  .formula{background:#f1f5fb;border-left:4px solid var(--p2);padding:8px 10px;font-family:Consolas,monospace;font-size:13.5px;white-space:pre-wrap;margin-top:8px;display:block}
+  .controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 14px;font-size:14px;cursor:pointer;font-family:inherit}
+  button.primary{background:#e8590c;color:#fff;border-color:#e8590c}
+  .dots{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .dot{width:30px;height:30px;border-radius:50%;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer;background:#fff}
+  .dot.on{background:#16202c;color:#fff;border-color:#16202c}
+  .faq h3{font-size:16px;color:var(--ink);margin:8px 0 4px}
+  .faq p{margin:4px 0 10px;line-height:1.6;font-size:14.5px}
+  .tag{display:inline-block;padding:1px 7px;border-radius:5px;color:#fff;font-size:12px;font-weight:700}
+  .el{opacity:0;transition:opacity .5s}
+  .el.show{opacity:1}
+  .draw{stroke-dasharray:var(--len);stroke-dashoffset:var(--len)}
+  .draw.show{animation:dash 1s ease forwards}
+  @keyframes dash{to{stroke-dashoffset:0}}
+  .pop{transform-box:fill-box;transform-origin:center}
+  .pop.now{animation:pop .9s ease 2}
+  @keyframes pop{50%{transform:scale(1.8)}}
+  .lbl{font-size:12px;font-weight:700}
+  .small{font-size:11px;fill:var(--muted)}
+  @media (max-width:860px){.stage,.step-box{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1 data-i18n="h1"></h1>
+    <p data-i18n="sub"></p>
+  </div>
+  <div class="lang"><button id="bTH" class="on">ไทย</button> <button id="bEN">English</button></div>
+</header>
+
+<div class="wrap">
+  <div class="stage">
+    <!-- ======= SECTION ======= -->
+    <div class="card">
+      <h3 data-i18n="secTitle"></h3>
+      <svg viewBox="0 0 640 500" id="sec">
+        <defs>
+          <marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6Z" fill="#1d2733"/></marker>
+          <marker id="arR" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6Z" fill="#c92a2a"/></marker>
+        </defs>
+        <rect x="0" y="300" width="640" height="60" fill="var(--sea)"/>
+        <text x="8" y="296" class="small" data-i18n="water"></text>
+        <rect x="0" y="360" width="640" height="140" fill="var(--soil)"/>
+        <text x="8" y="376" class="small" data-i18n="seabed"></text>
+        <rect x="20" y="182" width="110" height="10" fill="#adb5bd"/>
+        <line x1="300" y1="110" x2="620" y2="110" stroke="#495057" stroke-dasharray="6 4"/>
+        <text x="540" y="104" class="small" data-i18n="cutoff"></text>
+
+        <polygon points="406.3,82.7 433.7,77.3 512.1,469.3 484.7,474.7" fill="#dee2e6" stroke="var(--pile)" stroke-width="1.5"/>
+        <polygon id="coat" class="el" points="406.3,82.7 433.7,77.3 478.8,302.9 451.4,308.3" fill="var(--coat)" opacity=".85"/>
+
+        <g id="stn">
+          <line x1="60" y1="150" x2="45" y2="182" stroke="#343a40" stroke-width="2"/>
+          <line x1="60" y1="150" x2="75" y2="182" stroke="#343a40" stroke-width="2"/>
+          <rect x="52" y="138" width="16" height="14" rx="2" fill="#343a40"/>
+          <text x="34" y="128" class="lbl" data-i18n="stn"></text>
+        </g>
+
+        <line id="s1" class="el draw" style="--len:360" x1="66" y1="145" x2="407.3" y2="87.6" stroke="var(--p1)" stroke-width="1.6"/>
+        <line id="s2" class="el draw" style="--len:400" x1="66" y1="145" x2="443.5" y2="269.1" stroke="var(--p2)" stroke-width="1.6"/>
+        <line id="s3" class="el draw" style="--len:370" x1="66" y1="145" x2="425.9" y2="180.8" stroke="var(--p3)" stroke-width="1.6"/>
+
+        <circle id="P1" class="el pop" cx="407.3" cy="87.6" r="5" fill="var(--p1)"/>
+        <text id="P1t" class="el lbl" x="336" y="80" fill="var(--p1)" data-i18n="p1top"></text>
+        <circle id="P2" class="el pop" cx="443.5" cy="269.1" r="5" fill="var(--p2)"/>
+        <text id="P2t" class="el lbl" x="364" y="288" fill="var(--p2)" data-i18n="p2bot"></text>
+        <circle id="P3" class="el pop" cx="425.9" cy="180.8" r="5" fill="var(--p3)"/>
+        <text id="P3t" class="el lbl" x="346" y="176" fill="var(--p3)" data-i18n="p3mid"></text>
+
+        <line id="face" class="el draw" style="--len:200" x1="407.3" y1="87.6" x2="443.5" y2="269.1" stroke="#1d2733" stroke-width="2.4"/>
+        <text id="faceT" class="el small" x="456" y="200" data-i18n="faceLine"></text>
+        <g id="slope" class="el">
+          <line x1="407.3" y1="87.6" x2="407.3" y2="269.1" stroke="#868e96" stroke-dasharray="4 3"/>
+          <line x1="407.3" y1="269.1" x2="443.5" y2="269.1" stroke="#868e96" stroke-dasharray="4 3"/>
+          <text x="384" y="182" class="small">ΔZ</text>
+          <text x="414" y="262" class="small">ΔH</text>
+        </g>
+
+        <line id="axis" class="el draw" style="--len:400" x1="420" y1="80" x2="500" y2="472" stroke="#e8590c" stroke-width="1.6" stroke-dasharray="10 5"/>
+        <text id="axisT" class="el small" x="505" y="150" data-i18n="axis"></text>
+        <circle id="AB" class="el pop" cx="426.2" cy="110" r="5.5" fill="var(--bad)"/>
+        <text id="ABt" class="el lbl" x="296" y="128" fill="var(--bad)" data-i18n="abCut"></text>
+        <circle id="TOE" class="el pop" cx="498.4" cy="472" r="6" fill="#1d2733"/>
+        <text id="TOEt" class="el lbl" x="518" y="476" data-i18n="tip"></text>
+        <g id="Lmark" class="el">
+          <line x1="440" y1="76" x2="518" y2="458" stroke="#1d2733" marker-end="url(#ar)" marker-start="url(#ar)"/>
+          <text x="487" y="300" class="lbl" data-i18n="L"></text>
+        </g>
+        <g id="coatB" class="el">
+          <line x1="440" y1="305" x2="620" y2="305" stroke="var(--coat)" stroke-dasharray="3 3"/>
+          <text x="500" y="320" class="small" fill="var(--coat)" data-i18n="coatBot"></text>
+        </g>
+        <g id="res" class="el">
+          <circle cx="425.9" cy="180.8" r="16" fill="none" stroke="var(--p3)" stroke-dasharray="3 2"/>
+          <text x="448" y="168" class="lbl" fill="var(--p3)" data-i18n="resOk"></text>
+        </g>
+      </svg>
+    </div>
+
+    <!-- ======= PLAN ======= -->
+    <div class="card">
+      <h3 data-i18n="planTitle"></h3>
+      <!-- Geometry: STN S=(35,237), pile centre C=(178,112), R=40.
+           |SC|=189.93, half-angle asin(R/|SC|)=12.16°, tangent length 185.67.
+           Tangent points T1=(145.92,88.09) and T2=(197.39,146.99) lie exactly on the circle.
+           Bisector S→C hits the near surface at P1=(147.88,138.33). -->
+      <svg viewBox="0 0 300 300" id="plan">
+        <g transform="translate(22 22)"><line x1="34" y1="0" x2="4" y2="0" stroke="#1d2733" stroke-width="2" marker-end="url(#ar)"/><text x="40" y="4" class="lbl">N</text></g>
+        <rect x="28" y="230" width="14" height="14" fill="#343a40"/><text x="16" y="262" class="lbl">STN</text>
+        <!-- design -->
+        <circle cx="200" cy="95" r="40" fill="none" stroke="var(--bad)" stroke-dasharray="5 4" opacity=".55"/>
+        <line x1="192" y1="95" x2="208" y2="95" stroke="var(--ok)" stroke-width="2"/><line x1="200" y1="87" x2="200" y2="103" stroke="var(--ok)" stroke-width="2"/>
+        <text x="216" y="66" class="small" fill="var(--ok)" data-i18n="design"></text>
+        <!-- actual pile -->
+        <circle cx="178" cy="112" r="40" fill="#e9ecef" stroke="var(--pile)" stroke-width="2"/>
+
+        <!-- step 2a: two tangent sights that TOUCH the circle -->
+        <g id="tan">
+          <line id="tL" class="el draw" style="--len:186" x1="35" y1="237" x2="145.92" y2="88.09" stroke="var(--tan)" stroke-width="1.6"/>
+          <line id="tR" class="el draw" style="--len:186" x1="35" y1="237" x2="197.39" y2="146.99" stroke="var(--tan)" stroke-width="1.6"/>
+        </g>
+        <circle id="tLp" class="el pop" cx="145.92" cy="88.09" r="3.6" fill="var(--tan)"/>
+        <circle id="tRp" class="el pop" cx="197.39" cy="146.99" r="3.6" fill="var(--tan)"/>
+        <text id="tLt" class="el small" x="60" y="116" fill="var(--tan)" data-i18n="tanL"></text>
+        <text id="tRt" class="el small" x="128" y="214" fill="var(--tan)" data-i18n="tanR"></text>
+
+        <!-- step 2b: bisector -> P1 on surface -->
+        <line id="pS" class="el draw" style="--len:150" x1="35" y1="237" x2="147.88" y2="138.33" stroke="var(--p1)" stroke-width="1.8"/>
+        <circle id="pP1" class="el pop" cx="147.88" cy="138.33" r="5" fill="var(--p1)"/>
+        <text id="pP1t" class="el lbl" x="100" y="160" fill="var(--p1)">P1</text>
+        <text id="bisT" class="el small" x="54" y="190" fill="var(--p1)" data-i18n="bisect"></text>
+
+        <g id="pR" class="el">
+          <line x1="147.88" y1="138.33" x2="178" y2="112" stroke="#1d2733" stroke-width="2" marker-end="url(#ar)"/>
+          <text x="166" y="140" class="lbl">+R</text>
+          <circle cx="178" cy="112" r="4.5" fill="#1d2733"/>
+          <text x="128" y="106" class="small" data-i18n="centre"></text>
+        </g>
+        <g id="pDev" class="el">
+          <line x1="200" y1="95" x2="178" y2="112" stroke="var(--bad)" stroke-width="2.5" marker-end="url(#arR)"/>
+          <text x="222" y="120" class="lbl" fill="var(--bad)" data-i18n="dev"></text>
+          <text x="222" y="134" class="small">ΔN, ΔE, Total</text>
+        </g>
+        <g id="pRake" class="el">
+          <line x1="178" y1="112" x2="250" y2="190" stroke="#e8590c" stroke-width="2" marker-end="url(#ar)" stroke-dasharray="6 3"/>
+          <text x="160" y="222" class="small" data-i18n="rakeDir"></text>
+        </g>
+      </svg>
+    </div>
+  </div>
+
+  <div class="step-box">
+    <div class="card explain">
+      <div class="controls">
+        <button id="prev"></button>
+        <button id="play" class="primary"></button>
+        <button id="next"></button>
+        <span id="cnt" style="color:var(--muted);font-size:13px"></span>
+      </div>
+      <div class="dots" id="dots"></div>
+      <h2 id="title" style="margin-top:12px"></h2>
+      <div id="body"></div>
+    </div>
+    <div class="card faq" id="faq"></div>
+  </div>
+</div>
+
+<script>
+const T = {
+ th:{
+  h1:'วิธีเก็บค่า As-built เสาเข็ม 3 จุด (P1 · P2 · P3) และวิธีคิด',
+  sub:'Pile Check — ใช้กล้อง Total Station ส่องจุดบนผิวเสา 3 จุด แล้วคำนวณศูนย์กลาง ความเอียง และปลายเข็ม (ภาพไม่ได้ตามสเกล)',
+  secTitle:'รูปตัด (มองด้านข้าง)', planTitle:'แปลน (มองจากด้านบน) — ทิศเหนือชี้ซ้าย',
+  water:'ระดับน้ำ', seabed:'ท้องทะเล (Seabed)', cutoff:'ระดับตัดหัวเข็ม', stn:'STN (กล้อง)',
+  p1top:'P1 (บน)', p2bot:'P2 (ล่าง)', p3mid:'P3 (กลาง)', faceLine:'เส้น P1–P2 = แนวเอียงจริงของเสา',
+  axis:'แกนศูนย์กลางเสา', abCut:'As-built @ cut-off', tip:'ปลายเข็ม (Tip)', L:'L (ยาวเสา)',
+  coatBot:'ปลายเคลือบ (Coating bottom)', resOk:'ห่างเส้น ≤ 0.025 m → OK',
+  design:'ตามแบบ', tanL:'เส้นสัมผัสซ้าย', tanR:'เส้นสัมผัสขวา', bisect:'แบ่งครึ่งมุม → ตรงกลางเข็ม',
+  centre:'ศูนย์กลาง', dev:'ค่าเบี่ยง', rakeDir:'ทิศเอียง (Azimuth P1→P2)',
+  prev:'◀ ย้อน', next:'ถัดไป ▶', play:'▶ เล่นอัตโนมัติ', pause:'⏸ หยุด', step:'ขั้นที่',
+  faq:`<h3>❓ ทำไมต้องมี P3</h3>
+   <p>2 จุดลากเป็นเส้นตรงได้<b>เสมอ</b> ต่อให้ส่องผิดก็ตาม จึง<b>ตรวจตัวเองไม่ได้</b> ส่วน P3 คือ<b>จุดตรวจซ้ำ</b>: ถ้าวัดถูก P3 ต้องอยู่บนเส้น P1–P2 <b>ห่างไม่เกิน 0.025 m (2.5 cm)</b></p>
+   <p>ถ้า P3 หลุดเส้น แสดงว่า: ส่องคนละหน้าเสา · เส้นสัมผัสไม่แตะขอบจริง · จดหรือพิมพ์ค่าผิด · เสาโก่งหรือคด · กล้องขยับ<br>→ <b>ให้วัดใหม่ก่อนบันทึก</b></p>
+   <h3>❓ หาตรงกลางเข็มยังไง</h3>
+   <p>ส่องกล้อง<b>สัมผัสขอบซ้าย</b>และ<b>สัมผัสขอบขวา</b>ของเสา โดยเส้นเล็งต้อง<b>แตะผิววงกลมพอดี</b> ห้ามเข้าเนื้อเสาและห้ามเลยออกไป แล้วอ่านมุมทั้งสองข้าง<br>
+   หมุนกล้องไปที่<b>มุมเฉลี่ย (กึ่งกลาง)</b> เส้นแบ่งครึ่งมุมของเส้นสัมผัส 2 เส้นจะ<b>ผ่านศูนย์กลางเสาพอดี</b> ยิงระยะที่จุดนี้ได้ P1 บนผิวเสา แล้วบวกรัศมี R ก็ได้ศูนย์กลาง</p>
+   <h3>❓ 3 จุดเก็บตรงไหนก็ได้ใช่ไหม</h3>
+   <p><b>เกือบใช่</b> ไม่ต้องอยู่ที่ระดับที่กำหนด แต่มีกติกา 3 ข้อ:<br>
+   1) ทั้ง 3 จุดอยู่<b>หน้าเสาด้านเดียวกัน</b> และหากลางด้วยเส้นสัมผัส 2 ข้างทุกจุด<br>
+   2) <b>P1 กับ P2 ยิ่งห่างกันยิ่งแม่น</b><br>
+   3) P3 อยู่<b>ระหว่าง</b> P1 กับ P2</p>
+   <h3>❓ หลังตอก P1 ต้องอยู่ที่หัวเสาใช่ไหม</h3>
+   <p><b>ใช่ ถูกต้องครับ</b> แอปคิดปลายเข็มโดยวัดความยาว L <b>จาก P1 ลงไป</b>
+   <span class="formula">Tip Z = Z(P1) − L × cos(มุมเอียง)</span>
+   ถ้า P1 ไม่ได้อยู่ที่หัวเสาจริง ปลายเข็มและปลายเคลือบจะถูกคิด<b>ลึกเกินจริง</b> หลังตอกจึงต้องยิง P1 ที่<b>ขอบหัวเสาจริง</b> ถ้าตัดหัวเข็มภายหลัง ต้องใช้ความยาว L ที่เหลือจริง</p>`,
+  steps:[
+   ['1. ตั้งกล้องและเล็ง Backsight', `<p>ตั้งกล้อง Total Station บนหมุดที่รู้พิกัด (STN) แล้วเล็งหมุด Backsight เพื่อตั้งมุมทิศ</p><p>ตรวจค่า BS ให้ผ่านก่อน (ต่างไม่เกิน 0.01 m) ถ้า BS ไม่ผ่าน ค่าที่วัดต่อจากนี้จะผิดทั้งหมด</p>`],
+   ['2. ส่องเส้นสัมผัส 2 ข้าง (ซ้าย/ขวา)', `<p>ส่องกล้องให้เส้นเล็ง<b>สัมผัสขอบซ้าย</b>ของเสา โดยแตะผิววงกลมพอดี ห้ามเข้าเนื้อเสาและห้ามเลยออก อ่านมุมราบไว้ แล้วทำเหมือนกันที่<b>ขอบขวา</b></p><p>เส้นสัมผัส 2 เส้นนี้บอกขอบเขตของเสาที่กล้องมองเห็น</p>`],
+   ['3. แบ่งครึ่งมุม → ยิง P1 ที่หัวเสา', `<p>หมุนกล้องไปที่<b>มุมเฉลี่ยของเส้นสัมผัสทั้งสอง</b> เส้นนี้จะชี้ผ่าน<b>ศูนย์กลางเสาพอดี</b> แล้วยิงระยะ จะได้ P1 บนผิวด้านหน้า (N, E, Z)</p><div class="formula">มุม P1 = (มุมสัมผัสซ้าย + มุมสัมผัสขวา) / 2</div><p>หลังตอก ให้ P1 อยู่ที่<b>ขอบหัวเสา</b></p>`],
+   ['4. ยิง P2 — จุดล่าง ด้านเดียวกัน', `<p>ก้มกล้องลงตามผิวเสา<b>หน้าเดิม</b> แล้วทำเส้นสัมผัส 2 ข้างกับแบ่งครึ่งมุมอีกครั้ง ยิงจุดล่างให้<b>ห่างจาก P1 มากที่สุดเท่าที่มองเห็น</b> (เหนือน้ำ)</p>`],
+   ['5. P1 → P2 = แนวเอียงจริงของเสา', `<p>P1 กับ P2 อยู่บนผิวเสาเส้นเดียวกัน เส้นที่ผ่านสองจุดนี้จึง<b>ขนานกับแกนเสา</b></p><div class="formula">ความชัน 1 : x  →  x = ΔZ / ΔH
+มุมเอียง   = atan(1/x)
+ทิศเอียง   = Azimuth จาก P1 → P2</div>`],
+   ['6. หาศูนย์กลางเสา (+รัศมี)', `<p>P1 อยู่ที่ผิวด้านหน้า ไม่ใช่ศูนย์กลาง จึงต้อง<b>เลื่อนเข้าไปอีก 1 รัศมี (R = D/2)</b> ตามแนวเส้นแบ่งครึ่งมุม (แนวกล้องไปหา P1)</p><div class="formula">Center N = N(P1) + R·cos(Az STN→P1)
+Center E = E(P1) + R·sin(Az STN→P1)</div>`],
+   ['7. เลื่อนตามแกนลงมาที่ระดับตัดหัวเข็ม → เทียบแบบ', `<p>เสาเอียง ตำแหน่งจึงเปลี่ยนไปตามระดับ ต้องเลื่อนศูนย์กลาง<b>ไปตามแกนเสา</b>ให้มาอยู่ที่ระดับ cut-off ก่อน แล้วค่อยเทียบกับพิกัดตามแบบ</p><div class="formula">ΔN, ΔE = As-built − Design
+Total  = √(ΔN² + ΔE²)  ≤ 0.150 m → OK</div>`],
+   ['8. ต่อแกนลงไป = ปลายเข็ม และปลายเคลือบ', `<p>จากศูนย์กลางที่หัวเสา ต่อแนวแกนลงไปเท่ากับความยาวเสา L จะได้<b>ตำแหน่งปลายเข็ม</b> ทำแบบเดียวกันกับความยาวเคลือบ จะได้<b>ระดับปลายเคลือบ</b></p><div class="formula">Tip Z     = Z(P1) − L × cos(มุมเอียง)
+Coating Z = Z(P1) − Lcoat × cos(มุมเอียง)
+ปลายเคลือบต้องฝังลึกใต้ seabed ≥ 2.0 m</div>`],
+   ['9. P3 — จุดตรวจซ้ำ', `<p>ยิงจุดกลางบนผิวหน้าเดิม (ใช้เส้นสัมผัสและแบ่งครึ่งมุมเหมือนกัน) แล้วแอปจะวัดว่า P3<b>ห่างจากเส้น P1–P2 เท่าไร</b> (residual)</p><p><span class="tag" style="background:var(--ok)">≤ 0.025 m</span> ผ่าน: 3 จุดอยู่แนวเดียวกัน เชื่อค่าได้<br><span class="tag" style="background:var(--bad)">&gt; 0.025 m · CHECK!</span> มีจุดใดจุดหนึ่งผิด ให้วัดใหม่</p>`],
+  ]
+ },
+ en:{
+  h1:'As-built Pile Survey — 3-Point Method (P1 · P2 · P3)',
+  sub:'Pile Check — shoot 3 points on the pile surface with a Total Station, then compute the centre, rake and pile tip (not to scale)',
+  secTitle:'SECTION (side view)', planTitle:'PLAN (top view) — North to the left',
+  water:'Water level', seabed:'Seabed', cutoff:'Cut-off level', stn:'STN (instrument)',
+  p1top:'P1 (top)', p2bot:'P2 (bottom)', p3mid:'P3 (mid)', faceLine:'Line P1–P2 = actual pile rake',
+  axis:'Pile centre axis', abCut:'As-built @ cut-off', tip:'Pile tip', L:'L (pile length)',
+  coatBot:'Coating bottom', resOk:'Off-line ≤ 0.025 m → OK',
+  design:'Design', tanL:'Left tangent', tanR:'Right tangent', bisect:'Bisect angle → pile centre',
+  centre:'Centre', dev:'Deviation', rakeDir:'Rake direction (Az P1→P2)',
+  prev:'◀ Back', next:'Next ▶', play:'▶ Auto play', pause:'⏸ Pause', step:'Step',
+  faq:`<h3>❓ Why do we need P3?</h3>
+   <p>Two points <b>always</b> form a straight line, even if one is wrong, so they <b>cannot check themselves</b>. P3 is the <b>check point</b>: if the survey is right, P3 must lie on line P1–P2 <b>within 0.025 m (2.5 cm)</b>.</p>
+   <p>If P3 is off the line: points on different faces · tangent not truly touching the edge · typing error · bent pile · instrument moved<br>→ <b>re-measure before saving</b>.</p>
+   <h3>❓ How do we find the pile centre?</h3>
+   <p>Sight a <b>tangent to the left edge</b> and a <b>tangent to the right edge</b>. Each line of sight must <b>just touch the circle</b>, not cutting into the pile and not missing it. Read both horizontal angles.<br>
+   Turn to the <b>mean angle</b>. The bisector of the two tangents passes <b>exactly through the pile centre</b>. Shoot the distance there to get P1 on the surface, then add radius R to reach the centre.</p>
+   <h3>❓ Can the 3 points be anywhere?</h3>
+   <p><b>Almost.</b> No fixed levels are required, but follow 3 rules:<br>
+   1) All 3 points on the <b>same face</b>, each found by the two-tangent bisection<br>
+   2) <b>The further apart P1 and P2, the more accurate</b><br>
+   3) P3 <b>between</b> P1 and P2</p>
+   <h3>❓ After driving, must P1 be at the pile head?</h3>
+   <p><b>Yes, correct.</b> The app computes the tip by measuring length L <b>down from P1</b>:
+   <span class="formula">Tip Z = Z(P1) − L × cos(tilt)</span>
+   If P1 is not at the real pile head, the tip and coating bottom come out <b>too deep</b>. After driving, shoot P1 at the <b>actual top edge</b>. If the head is cut later, use the remaining length L.</p>`,
+  steps:[
+   ['1. Set up & backsight', `<p>Set the Total Station over a known control point (STN) and sight the backsight to orient the azimuth.</p><p>The BS check must pass first (≤ 0.01 m). If the BS fails, everything measured afterwards is wrong.</p>`],
+   ['2. Sight two tangents (left / right)', `<p>Sight the <b>left edge</b> so the line of sight <b>just touches the circle</b>, not cutting into the pile and not missing it. Read the horizontal angle. Repeat on the <b>right edge</b>.</p><p>These two tangents bound the pile as seen from the instrument.</p>`],
+   ['3. Bisect → shoot P1 at the pile head', `<p>Turn to the <b>mean of the two tangent angles</b>. This line passes <b>exactly through the pile centre</b>. Shoot the distance to get P1 on the front surface (N, E, Z).</p><div class="formula">Angle P1 = (left tangent + right tangent) / 2</div><p>After driving, P1 must be at the <b>top edge of the pile</b>.</p>`],
+   ['4. Shoot P2 — lower point, same face', `<p>Tilt the telescope down along the <b>same face</b>, repeat the two tangents and bisection, and shoot a point <b>as far from P1 as visible</b> (above water).</p>`],
+   ['5. P1 → P2 = actual pile rake', `<p>P1 and P2 lie on the same surface line, so the line through them is <b>parallel to the pile axis</b>.</p><div class="formula">Slope 1 : x  →  x = ΔZ / ΔH
+Tilt         = atan(1/x)
+Rake dir.    = Azimuth P1 → P2</div>`],
+   ['6. Pile centre (+ radius)', `<p>P1 is on the front surface, not the centre, so move <b>one radius (R = D/2) further in</b> along the bisector (instrument → P1).</p><div class="formula">Center N = N(P1) + R·cos(Az STN→P1)
+Center E = E(P1) + R·sin(Az STN→P1)</div>`],
+   ['7. Slide along the axis to cut-off → compare with design', `<p>On a raked pile the position changes with level, so slide the centre <b>along the pile axis</b> to the cut-off level, then compare with the design coordinates.</p><div class="formula">ΔN, ΔE = As-built − Design
+Total  = √(ΔN² + ΔE²)  ≤ 0.150 m → OK</div>`],
+   ['8. Extend the axis = pile tip & coating bottom', `<p>From the centre at the head, extend the axis by the pile length L to get the <b>pile tip</b>. Do the same with the coating length to get the <b>coating bottom level</b>.</p><div class="formula">Tip Z     = Z(P1) − L × cos(tilt)
+Coating Z = Z(P1) − Lcoat × cos(tilt)
+Coating must embed ≥ 2.0 m below seabed</div>`],
+   ['9. P3 — the check point', `<p>Shoot a middle point on the same face (same two-tangent bisection). The app measures <b>how far P3 is from line P1–P2</b> (residual).</p><p><span class="tag" style="background:var(--ok)">≤ 0.025 m</span> pass: all 3 points are on one line, the data can be trusted<br><span class="tag" style="background:var(--bad)">&gt; 0.025 m · CHECK!</span> one point is wrong, re-measure</p>`],
+  ]
+ }
+};
+const SHOW = [
+  {show:['stn']},
+  {show:['tL','tR','tLp','tRp','tLt','tRt'], now:['tLp','tRp']},
+  {show:['bisT','pS','pP1','pP1t','s1','P1','P1t'], now:['P1','pP1']},
+  {show:['s2','P2','P2t'], now:['P2']},
+  {show:['face','faceT','slope','pRake']},
+  {show:['pR']},
+  {show:['axis','axisT','AB','ABt','pDev'], now:['AB']},
+  {show:['Lmark','TOE','TOEt','coat','coatB'], now:['TOE']},
+  {show:['s3','P3','P3t','res'], now:['P3']},
+];
+const ALL = new Set(SHOW.flatMap(s=>s.show));
+let lang='th', cur=0, timer=null;
+const $=id=>document.getElementById(id);
+
+function applyLang(){
+  const L=T[lang];
+  document.documentElement.lang=lang;
+  document.querySelectorAll('[data-i18n]').forEach(e=>{ e.textContent=L[e.dataset.i18n]; });
+  $('faq').innerHTML=L.faq;
+  $('prev').textContent=L.prev; $('next').textContent=L.next;
+  $('play').textContent= timer? L.pause : L.play;
+  $('bTH').classList.toggle('on',lang==='th'); $('bEN').classList.toggle('on',lang==='en');
+  render();
+}
+function render(){
+  const L=T[lang];
+  $('title').textContent=L.steps[cur][0];
+  $('body').innerHTML=L.steps[cur][1];
+  $('cnt').textContent=`${L.step} ${cur+1} / ${SHOW.length}`;
+  [...$('dots').children].forEach((d,k)=>d.classList.toggle('on',k===cur));
+}
+function go(i){
+  cur=Math.max(0,Math.min(SHOW.length-1,i));
+  const vis=new Set(SHOW.slice(0,cur+1).flatMap(s=>s.show));
+  ALL.forEach(id=>{ const el=$(id); if(!el) return;
+    if(vis.has(id)){ if(!el.classList.contains('show')) requestAnimationFrame(()=>el.classList.add('show')); }
+    else el.classList.remove('show','now');
+  });
+  document.querySelectorAll('.now').forEach(e=>e.classList.remove('now'));
+  (SHOW[cur].now||[]).forEach(id=>{ const e=$(id); void e.getBoundingClientRect(); e.classList.add('now'); });
+  render();
+}
+SHOW.forEach((s,i)=>{ const d=document.createElement('div'); d.className='dot'; d.textContent=i+1; d.onclick=()=>{stop();go(i);}; $('dots').appendChild(d); });
+function stop(){ clearInterval(timer); timer=null; $('play').textContent=T[lang].play; }
+$('next').onclick=()=>{stop();go(cur+1);};
+$('prev').onclick=()=>{stop();go(cur-1);};
+$('play').onclick=()=>{ if(timer){stop();return;} if(cur===SHOW.length-1) go(0);
+  $('play').textContent=T[lang].pause;
+  timer=setInterval(()=>{ if(cur>=SHOW.length-1){stop();return;} go(cur+1); },5500); };
+$('bTH').onclick=()=>{lang='th';applyLang();};
+$('bEN').onclick=()=>{lang='en';applyLang();};
+applyLang(); go(0);
+</script>
+</body>
+</html>
