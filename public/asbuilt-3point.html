@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -50,7 +50,7 @@
     <h1 data-i18n="h1"></h1>
     <p data-i18n="sub"></p>
   </div>
-  <div class="lang"><button id="bTH" class="on">ไทย</button> <button id="bEN">English</button></div>
+  <div class="lang"><button id="bTH">ไทย</button> <button id="bEN" class="on">English</button></div>
 </header>
 
 <div class="wrap">
@@ -293,7 +293,7 @@ const SHOW = [
   {show:['s3','P3','P3t','res'], now:['P3']},
 ];
 const ALL = new Set(SHOW.flatMap(s=>s.show));
-let lang='th', cur=0, timer=null;
+let lang=(new URLSearchParams(location.search).get('lang')==='th')?'th':'en', cur=0, timer=null;
 const $=id=>document.getElementById(id);
 
 function applyLang(){
