@@ -51,11 +51,11 @@ export default function ResultReadout({ results, p1El, tol, inc, stage, note }) 
         <div className={`stamp ${results.slopeCheck === 'OK' ? 'pass' : 'fail'}`}>
           {t('result.slopeStamp', { check: st(results.slopeCheck, CHECK_KEY) })}
           <small>{inc ? t('result.slopeVs', { ratio: fmt(results.slope, 2), designRatio: inc.vertical ? t('common.incline.vertBadge') : `1:${inc.ratio}` }) : `1:${fmt(results.slope, 2)}`}</small>
-          {results.devRakeRatio != null && (
+          {results.rakeCheck === 'OVER' && (
             <small>{t('result.rakeDevLine', { dev: Math.round(results.devRakeRatio), tol: fmt(results.tolRakeRatio, 2) })}</small>
           )}
-          {results.devPerpRatio != null && (
-            <small>{t(inc && inc.vertical ? 'result.vertDevLine' : 'result.perpDevLine', { dev: Math.round(results.devPerpRatio), tol: fmt(results.tolPerpRatio, 0) })}</small>
+          {results.perpCheck === 'OVER' && (
+            <small>{t(results.devRake == null ? 'result.vertDevLine' : 'result.perpDevLine', { dev: Math.round(results.devPerpRatio), tol: fmt(results.tolPerpRatio, 0) })}</small>
           )}
         </div>
         {results.p3Check && (
@@ -99,6 +99,16 @@ export default function ResultReadout({ results, p1El, tol, inc, stage, note }) 
             <div><span>{t('result.toeDiffN')}</span>{fmt(results.toeDiffN)} <b>{st(results.toeDirN, DIR_KEY)}</b></div>
             <div><span>{t('result.toeDiffE')}</span>{fmt(results.toeDiffE)} <b>{st(results.toeDirE, DIR_KEY)}</b></div>
             <div><span>{t('result.toeTotal')}</span>{fmt(results.toeTotalDev)}</div>
+          </div>
+        )}
+        {(results.devRakeRatio != null || results.devPerpRatio != null) && (
+          <div className="readout-grid">
+            {results.devRakeRatio != null && (
+              <div><span>{t('records.col.devRakeRatio')}</span>1:{Math.round(results.devRakeRatio)} <b>{st(results.rakeCheck, CHECK_KEY)}</b><br /><small>{t('result.limitLabel')} 1:{fmt(results.tolRakeRatio, 2)}</small></div>
+            )}
+            {results.devPerpRatio != null && (
+              <div><span>{t('records.col.devPerpRatio')}</span>1:{Math.round(results.devPerpRatio)} <b>{st(results.perpCheck, CHECK_KEY)}</b><br /><small>{t('result.limitLabel')} 1:{fmt(results.tolPerpRatio, 0)}</small></div>
+            )}
           </div>
         )}
         <div className="readout-grid">
