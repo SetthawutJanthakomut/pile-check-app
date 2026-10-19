@@ -189,7 +189,7 @@ function PileMarker({ info, proj, r, showLabel, labelMode = 'outside', zone, dim
         const fs = Math.min(r * 0.8, (2 * r * 0.9) / (Math.max(short.length, 1) * 0.62));
         return (
           <text x={x} y={y} textAnchor="middle" dominantBaseline="central"
-            className="plan-label plan-label-in" style={{ fontSize: `${fs}px` }}>
+            className="plan-label" style={{ fontSize: `${fs}px`, fontWeight: 700, strokeWidth: '1.5px', pointerEvents: 'none' }}>
             {short}
           </text>
         );
