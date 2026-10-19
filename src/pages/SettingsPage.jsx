@@ -10,6 +10,10 @@ const LABEL_KEY = {
   tol_bs_m: 'settings.tolBs',
   tol_coating_embed_m: 'settings.tolCoatingEmbed',
   tol_cross_check_m: 'settings.tolCrossCheck',
+  tol_perp_ratio: 'settings.tolPerpRatio',
+  tol_rake_1to4: 'settings.tolRake4',
+  tol_rake_1to6: 'settings.tolRake6',
+  tol_rake_1to8: 'settings.tolRake8',
 };
 
 function getColumns(t) {

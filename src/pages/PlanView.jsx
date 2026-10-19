@@ -107,7 +107,7 @@ function statusLine(label, primary, tolPositionM) {
 const RAKE_COLOR = 'var(--ink-soft)';
 const D2R = Math.PI / 180;
 
-function RakeIndicator({ x, y, r, bearingDeg, hint }) {
+function RakeIndicator({ x, y, r, bearingDeg, hint, showDeg = true }) {
   const lineLen = r * 1.3;
   const rad = bearingDeg * D2R;
   // North-left screen frame: bearing 0 (N) = left, 90 (E) = up.
@@ -129,12 +129,12 @@ function RakeIndicator({ x, y, r, bearingDeg, hint }) {
       <title>{hint}</title>
       <line x1={startX} y1={startY} x2={baseX} y2={baseY} stroke={RAKE_COLOR} strokeWidth={1.2} vectorEffect="non-scaling-stroke" />
       <polygon points={`${tipX},${tipY} ${p1x},${p1y} ${p2x},${p2y}`} fill={RAKE_COLOR} />
-      <text x={labelX} y={labelY} textAnchor="middle" fontSize={Math.max(6, r * 0.75)} fill={RAKE_COLOR}>{`${Math.round(bearingDeg)}°`}</text>
+      {showDeg && <text x={labelX} y={labelY} textAnchor="middle" fontSize={Math.max(6, r * 0.75)} fill={RAKE_COLOR}>{`${Math.round(bearingDeg)}°`}</text>}
     </g>
   );
 }
 
-function PileMarker({ info, proj, r, showLabel, dim, pulsing, onSelect }) {
+function PileMarker({ info, proj, r, showLabel, labelMode = 'outside', zone, dim, pulsing, onSelect }) {
   const { t } = useTranslation();
   const { pile, status, beforeOver, disagree } = info;
   const { x, y } = proj.toXY(Number(pile.coordinate_pe), Number(pile.coordinate_pn));
@@ -165,7 +165,7 @@ function PileMarker({ info, proj, r, showLabel, dim, pulsing, onSelect }) {
     <g className={`plan-marker${dim ? ' dim' : ''}`} onClick={(e) => { e.stopPropagation(); onSelect(pile.pile_no); }}>
       {fillEl}
       {showRake && (
-        <RakeIndicator x={x} y={y} r={r} bearingDeg={Number(pile.batter_bearing_deg)} hint={t('plan.rakeHint')} />
+        <RakeIndicator x={x} y={y} r={r} bearingDeg={Number(pile.batter_bearing_deg)} hint={t('plan.rakeHint')} showDeg={labelMode === 'outside'} />
       )}
       {beforeOver && (
         <circle cx={x} cy={y} r={r + 2} fill="none" stroke="var(--fail)" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
@@ -177,7 +177,24 @@ function PileMarker({ info, proj, r, showLabel, dim, pulsing, onSelect }) {
       {pulsing && (
         <circle cx={x} cy={y} r={r} fill="none" stroke="var(--accent)" strokeWidth={2} className="plan-pulse-ring" />
       )}
-      {showLabel && (() => {
+      {showLabel && labelMode === 'inside' && (() => {
+        // Tight spacing (typically phones, where the touch-size floor makes the
+        // markers nearly touch): write a short name INSIDE the marker so it can
+        // never collide with a neighbour. Zone prefix is dropped (zone is shown
+        // in the selected pill), font shrinks to fit the circle.
+        let short = String(pile.pile_no);
+        if (zone && short.toUpperCase().startsWith(String(zone).toUpperCase())) {
+          short = short.slice(String(zone).length).replace(/^[-_ ]+/, '') || short;
+        }
+        const fs = Math.min(r * 0.8, (2 * r * 0.9) / (Math.max(short.length, 1) * 0.62));
+        return (
+          <text x={x} y={y} textAnchor="middle" dominantBaseline="central"
+            className="plan-label plan-label-in" style={{ fontSize: `${fs}px` }}>
+            {short}
+          </text>
+        );
+      })()}
+      {showLabel && labelMode === 'outside' && (() => {
         // North-left layout puts piles of one pier side-by-side horizontally, so a
         // horizontal name to the right collides with the next pile. Write the name
         // vertically, above or below the marker — on the side the rake arrow does
@@ -514,6 +531,17 @@ export default function PlanView({ session, role, onEdit }) {
     return avgSpacingPx0 * cam.k >= 30;
   }, [proj, visiblePileInfo.length, cam.k]);
 
+  // Vertical outside labels need clear space between rows. If the longest name
+  // (at the CSS label size, 11 world units) does not fit in the gap between the
+  // closest neighbours, switch to short names drawn inside the markers.
+  const labelMode = useMemo(() => {
+    if (!visiblePileInfo.length || !Number.isFinite(nearestPileDist)) return 'outside';
+    const longest = visiblePileInfo.reduce((m, { pile }) => Math.max(m, String(pile.pile_no).length), 0);
+    const labelLen = longest * 0.62 * 11;
+    const gap = nearestPileDist - 2 * baseRadius;
+    return labelLen + 8 <= gap ? 'outside' : 'inside';
+  }, [visiblePileInfo, nearestPileDist, baseRadius]);
+
   const grid = useMemo(() => {
     if (!bbox) return null;
     const step = niceNumber(Math.max(bbox.maxE - bbox.minE, bbox.maxN - bbox.minN) / 8);
@@ -684,6 +712,8 @@ export default function PlanView({ session, role, onEdit }) {
                       proj={proj}
                       r={baseRadius}
                       showLabel={showLabels}
+                      labelMode={labelMode}
+                      zone={selectedZone}
                       dim={!isActive(info)}
                       pulsing={pulseId === info.pile.id}
                       onSelect={setSelectedPile}

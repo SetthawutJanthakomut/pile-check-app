@@ -1,3 +1,4 @@
+import { buildTol } from '../lib/calculations';
 import { supabase } from '../lib/supabase';
 
 // Pulls everything PileReport needs that isn't already on RecordsTable's flattened
@@ -16,14 +17,7 @@ export async function fetchReportInputs(recordId) {
   if (setErr) throw setErr;
 
   const m = Object.fromEntries((settingsRows ?? []).map((r) => [r.key, r.value]));
-  const tol = {
-    positionM: m.tol_position_m ?? 0.075,
-    tiltDeg: m.tol_tilt_deg ?? 1.0,
-    residualM: m.tol_residual_m ?? 0.02,
-    bsM: m.tol_bs_m ?? 0.01,
-    coatingEmbedM: m.tol_coating_embed_m ?? 2.0,
-    crossCheckM: m.tol_cross_check_m ?? 0.03,
-  };
+  const tol = buildTol(m);
 
   return { record, pile: record.piles, station: record.station, backsight: record.backsight, tol };
 }

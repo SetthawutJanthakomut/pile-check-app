@@ -25,6 +25,53 @@ export function parseIncline(text) {
   return m ? { vertical: false, ratio: parseFloat(m[1]) } : { vertical: true, ratio: null };
 }
 
+/** Spec Table 4-1 "deviation in rake in direction of rake" for a rake 1:V,
+ *  returned as N of 1:N. Table keys are tabulated rakes (4, 6, 8 ...).
+ *  Rakes between two tabulated values: N interpolated linearly
+ *  (agreed 19-Oct-2026: 1:4.5 -> 28.75, 1:5 -> 32.5). Outside the table: clamped. */
+export function rakeTolRatio(V, table) {
+  if (V == null || !table) return null;
+  const pts = Object.entries(table)
+    .map(([k, v]) => [Number(k), Number(v)])
+    .filter(([k, v]) => Number.isFinite(k) && Number.isFinite(v) && v > 0)
+    .sort((a, b) => a[0] - b[0]);
+  if (!pts.length) return null;
+  if (V <= pts[0][0]) return pts[0][1];
+  if (V >= pts[pts.length - 1][0]) return pts[pts.length - 1][1];
+  for (let i = 1; i < pts.length; i++) {
+    const [x0, y0] = pts[i - 1];
+    const [x1, y1] = pts[i];
+    if (V <= x1) return y0 + ((y1 - y0) * (V - x0)) / (x1 - x0);
+  }
+  return null;
+}
+
+/** Build the tolerance object from project_settings rows ({ key: value }). */
+export function buildTol(m = {}) {
+  const n = (v, d) => (v == null || v === '' || !Number.isFinite(Number(v)) ? d : Number(v));
+  return {
+    positionM: n(m.tol_position_m, 0.075),
+    tiltDeg: n(m.tol_tilt_deg, 1.0),            // legacy - no longer used for the verdict
+    residualM: n(m.tol_residual_m, 0.02),
+    bsM: n(m.tol_bs_m, 0.01),
+    coatingEmbedM: n(m.tol_coating_embed_m, 2.0),
+    crossCheckM: n(m.tol_cross_check_m, 0.03),
+    perpRatio: n(m.tol_perp_ratio, 75),         // Table 4-1: verticality / perpendicular to rake
+    rakeRatios: {                               // Table 4-1: in direction of rake
+      4: n(m.tol_rake_1to4, 25),
+      6: n(m.tol_rake_1to6, 40),
+      8: n(m.tol_rake_1to8, 50),
+    },
+  };
+}
+
+/** 1:N value of a deviation (m per m). Capped so it stays JSON-safe. */
+export function devRatio(d) {
+  if (d == null) return null;
+  const a = Math.abs(d);
+  return a < 1e-5 ? 99999 : Math.min(1 / a, 99999);
+}
+
 /** Normalize angle difference into (-180, 180]. */
 export function normDiff(deg) {
   return ((deg + 180) % 360 + 360) % 360 - 180;
@@ -68,7 +115,7 @@ export function posCheckFor(totalDev, tolPositionM) {
  *  p1,p2:  { n, e, el }   (P1 = top, P2 = bottom)
  *  p3:     { n, e, el } | null
  *  measuredSeabed: number | null   (null -> fall back to design.seaBedLevel)
- *  tol:    { positionM, tiltDeg, residualM }
+ *  tol:    { positionM, residualM, perpRatio, rakeRatios, ... }  (see buildTol)
  */
 export function computeAll({ design, stn, p1, p2, p3 = null, measuredSeabed = null, tol }) {
   const out = {};
@@ -112,18 +159,41 @@ export function computeAll({ design, stn, p1, p2, p3 = null, measuredSeabed = nu
   // --- slope vs design ---
   const inc = parseIncline(design.incline);
   out.designTilt = inc.vertical ? 0 : Math.atan(1 / inc.ratio) * R2D; // AN
-  out.tiltDiff = out.tiltDeg - out.designTilt;                        // AO
-  out.slopeCheck = Math.abs(out.tiltDiff) <= tol.tiltDeg ? 'OK' : 'OVER'; // AP
+  out.tiltDiff = out.tiltDeg - out.designTilt;                        // AO (info)
 
-  // --- batter azimuth (meaningful for battered piles only) ---
+  // --- batter azimuth (battered piles only; 0 deg = toe due north is valid) ---
   out.asbuiltBatterAz = out.axisAz;                                   // AR
-  if (design.batterAzDeg != null && design.batterAzDeg !== 0) {
-    out.designBatterAz = design.batterAzDeg;                          // AQ
+  if (!inc.vertical && design.batterAzDeg != null && Number.isFinite(Number(design.batterAzDeg))) {
+    out.designBatterAz = Number(design.batterAzDeg);                  // AQ
     out.diffBatterAz = normDiff(out.asbuiltBatterAz - out.designBatterAz); // AS
   } else {
     out.designBatterAz = null;
     out.diffBatterAz = null;
   }
+
+  // --- verticality / rake check, Spec Table 4-1 (deviation as 1:N, per m vertical) ---
+  //  vertical pile : lean of the axis                       vs 1:perpRatio (1:75)
+  //  raked pile    : in direction of rake = lean*cos(dAz) - 1/V  vs 1:N(V) (1:4 25, 1:6 40, 1:8 50, interpolated)
+  //                  perpendicular        = lean*sin(dAz)        vs 1:perpRatio (1:75)
+  const lean = 1 / out.slope;                                         // horizontal m per 1 m vertical
+  const perpTol = tol.perpRatio ?? (tol.tiltDeg ? 1 / Math.tan(tol.tiltDeg * D2R) : 75);
+  out.tolPerpRatio = perpTol;
+  if (inc.vertical) {
+    out.devRake = null;
+    out.tolRakeRatio = null;
+    out.devPerp = lean;
+  } else {
+    const dAz = (out.diffBatterAz ?? 0) * D2R;
+    out.devRake = lean * Math.cos(dAz) - 1 / inc.ratio;               // + = flatter than design
+    out.devPerp = out.diffBatterAz == null ? null : lean * Math.sin(dAz);
+    out.tolRakeRatio = rakeTolRatio(inc.ratio, tol.rakeRatios) ?? perpTol;
+  }
+  out.devRakeRatio = devRatio(out.devRake);
+  out.devPerpRatio = devRatio(out.devPerp);
+  out.rakeCheck = out.devRake == null ? null : Math.abs(out.devRake) <= 1 / out.tolRakeRatio + 1e-12 ? 'OK' : 'OVER';
+  out.perpCheck = out.devPerp == null ? null : Math.abs(out.devPerp) <= 1 / out.tolPerpRatio + 1e-12 ? 'OK' : 'OVER';
+  const sc = [out.rakeCheck, out.perpCheck].filter(Boolean);
+  out.slopeCheck = sc.length ? (sc.every((c) => c === 'OK') ? 'OK' : 'OVER') : null; // AP
 
   // --- pile toe: from CENTER at top, extended ALONG the actual axis ---
   if (design.lengthM != null) {

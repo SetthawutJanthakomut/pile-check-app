@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 import { localdb, replaceAll } from '../lib/localdb';
 import { queueRecord, queuePhotos, pushOne, isNetworkError } from '../lib/sync';
-import { computeAll, bsCheck, parseIncline, crossCheckDiff } from '../lib/calculations';
+import { computeAll, bsCheck, parseIncline, crossCheckDiff, buildTol } from '../lib/calculations';
 import { compressPhoto, uploadPhoto, deletePhoto, fetchPhotos, photoUrl, PHOTO_TYPES } from '../lib/photos';
 import { BOOL_KEY } from '../lib/statusLabels';
 import ResultReadout from '../components/ResultReadout';
@@ -24,7 +24,7 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
   const canSave = role === 'admin' || role === 'recorder';
   const [piles, setPiles] = useState([]);
   const [benchmarks, setBenchmarks] = useState([]);
-  const [tol, setTol] = useState({ positionM: 0.075, tiltDeg: 1.0, residualM: 0.02, bsM: 0.01, coatingEmbedM: 2.0, crossCheckM: 0.03 });
+  const [tol, setTol] = useState(buildTol({}));
   const [offline, setOffline] = useState(false);
 
   const [pileId, setPileId] = useState('');
@@ -91,27 +91,13 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
         const cached = await localdb.settings.toArray();
         if (cached.length) {
           const m = Object.fromEntries(cached.map((r) => [r.key, r.value]));
-          setTol({
-            positionM: m.tol_position_m ?? 0.075,
-            tiltDeg: m.tol_tilt_deg ?? 1.0,
-            residualM: m.tol_residual_m ?? 0.02,
-            bsM: m.tol_bs_m ?? 0.01,
-            coatingEmbedM: m.tol_coating_embed_m ?? 2.0,
-            crossCheckM: m.tol_cross_check_m ?? 0.03,
-          });
+          setTol(buildTol(m));
         }
         setOffline(true);
         return;
       }
       const m = Object.fromEntries(s.map((r) => [r.key, r.value]));
-      setTol({
-        positionM: m.tol_position_m ?? 0.075,
-        tiltDeg: m.tol_tilt_deg ?? 1.0,
-        residualM: m.tol_residual_m ?? 0.02,
-        bsM: m.tol_bs_m ?? 0.01,
-        coatingEmbedM: m.tol_coating_embed_m ?? 2.0,
-        crossCheckM: m.tol_cross_check_m ?? 0.03,
-      });
+      setTol(buildTol(m));
       setOffline(false);
       await replaceAll(localdb.settings, s);
     })();

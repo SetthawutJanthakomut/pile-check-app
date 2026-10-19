@@ -51,6 +51,12 @@ export default function ResultReadout({ results, p1El, tol, inc, stage, note }) 
         <div className={`stamp ${results.slopeCheck === 'OK' ? 'pass' : 'fail'}`}>
           {t('result.slopeStamp', { check: st(results.slopeCheck, CHECK_KEY) })}
           <small>{inc ? t('result.slopeVs', { ratio: fmt(results.slope, 2), designRatio: inc.vertical ? t('common.incline.vertBadge') : `1:${inc.ratio}` }) : `1:${fmt(results.slope, 2)}`}</small>
+          {results.devRakeRatio != null && (
+            <small>{t('result.rakeDevLine', { dev: Math.round(results.devRakeRatio), tol: fmt(results.tolRakeRatio, 2) })}</small>
+          )}
+          {results.devPerpRatio != null && (
+            <small>{t(inc && inc.vertical ? 'result.vertDevLine' : 'result.perpDevLine', { dev: Math.round(results.devPerpRatio), tol: fmt(results.tolPerpRatio, 0) })}</small>
+          )}
         </div>
         {results.p3Check && (
           <div className={`stamp ${results.p3Check === 'OK' ? 'pass' : 'fail'}`}>
