@@ -50,7 +50,6 @@ export function getColumns(t) {
     { key: 'dirN', label: t('records.col.dirN'), type: 'readonly', width: 90, render: (v) => (DIR_KEY[v] ? t(DIR_KEY[v]) : (v ?? '—')) },
     { key: 'diffE', label: t('records.col.diffE'), type: 'readonly' },
     { key: 'dirE', label: t('records.col.dirE'), type: 'readonly', width: 90, render: (v) => (DIR_KEY[v] ? t(DIR_KEY[v]) : (v ?? '—')) },
-    { key: 'totalDev', label: t('records.col.totalDev'), type: 'readonly' },
     { key: 'posCheck', label: t('records.col.posCheck'), type: 'readonly', verdict: true, width: 80, render: (v) => (CHECK_KEY[v] ? t(CHECK_KEY[v]) : (v ?? '—')) },
     { key: 'residual', label: t('records.col.residual'), type: 'readonly' },
     { key: 'p3Check', label: t('records.col.p3Check'), type: 'readonly', verdict: true, width: 80, render: (v) => (CHECK_KEY[v] ? t(CHECK_KEY[v]) : (v ?? '—')) },
@@ -197,7 +196,7 @@ export default function RecordsTable({ session, role, onEdit }) {
         ...res,
         // Re-evaluate against the LIVE tolerance rather than trusting the cached
         // res.posCheck, which reflects whatever tolerance was set at save time.
-        posCheck: res.totalDev != null ? posCheckFor(res.totalDev, tolPositionM) : res.posCheck,
+        posCheck: res.totalDev != null ? posCheckFor(res, tolPositionM) : res.posCheck,
       };
     });
 
@@ -226,7 +225,7 @@ export default function RecordsTable({ session, role, onEdit }) {
         note: item.record.note,
         _pending: true,
         ...res,
-        posCheck: res.totalDev != null ? posCheckFor(res.totalDev, tolPositionM) : res.posCheck,
+        posCheck: res.totalDev != null ? posCheckFor(res, tolPositionM) : res.posCheck,
       };
     });
 

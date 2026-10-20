@@ -17,14 +17,14 @@ export default function ResultReadout({ results, p1El, tol, inc, stage, note }) 
   // Re-evaluate against the LIVE tolerance rather than trusting the cached
   // results.posCheck, which reflects whatever tolerance was set at save time.
   // Falls back to the cached verdict when no tolerance is loaded (tol omitted).
-  const posCheck = tol ? posCheckFor(results.totalDev, tol.positionM) : results.posCheck;
+  const posCheck = tol ? posCheckFor(results, tol.positionM) : results.posCheck;
   // Translates a raw calculations.js status string via its key map, falling
   // back to the raw value itself when unmapped (e.g. null).
   const st = (v, map) => (map[v] ? t(map[v]) : v);
   // The total/tol caption is one authored string with an optional " / tol …" clause;
   // when tol is omitted, interpolate it empty and drop everything from the separator on.
-  const totalTolFull = t('result.totalTolCaption', { dev: fmt(results.totalDev), tol: tol ? tol.positionM : '' });
-  const totalTolText = tol ? totalTolFull : totalTolFull.split(' / ')[0];
+  // Position verdict per ITP B.2 (N and E separately) - the total vector is deliberately NOT shown (confusing).
+  const totalTolText = tol ? t('result.totalTolCaption', { tol: fmt(tol.positionM, 3) }) : '';
   return (
     <section className="readout mono">
       {(stage || note) && (

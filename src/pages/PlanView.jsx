@@ -95,7 +95,7 @@ const LEGEND_ITEMS = [
 ];
 
 function statusLine(label, primary, tolPositionM) {
-  return primary ? `${label}: ${posCheckFor(primary.totalDev, tolPositionM)} ${fmt(primary.totalDev, 3)} m` : `${label}: —`;
+  return primary ? `${label}: ${posCheckFor(primary, tolPositionM)} ΔN ${fmt(primary.diffN, 3)} ΔE ${fmt(primary.diffE, 3)} m` : `${label}: —`;
 }
 
 // Rake direction line: short fixed-length whisker (not scaled to the actual
@@ -289,9 +289,9 @@ export default function PlanView({ session, role, onEdit }) {
       const beforePrimary = effectivePrimary(beforeArr);
       const afterPrimary = effectivePrimary(afterArr);
       let status = 'none';
-      if (afterPrimary) status = posCheckFor(afterPrimary.totalDev, tolPositionM) === 'OK' ? 'afterOk' : 'afterOver';
+      if (afterPrimary) status = posCheckFor(afterPrimary, tolPositionM) === 'OK' ? 'afterOk' : 'afterOver';
       else if (beforePrimary) status = 'beforeOnly';
-      const beforeOver = status === 'beforeOnly' && beforePrimary && posCheckFor(beforePrimary.totalDev, tolPositionM) === 'OVER';
+      const beforeOver = status === 'beforeOnly' && beforePrimary && posCheckFor(beforePrimary, tolPositionM) === 'OVER';
       const disagree = crossCheckMax(beforeArr) > tol || crossCheckMax(afterArr) > tol;
       return { pile: p, beforeArr, afterArr, beforePrimary, afterPrimary, status, beforeOver, disagree };
     }), [piles, recordsByPile, tol, tolPositionM]);

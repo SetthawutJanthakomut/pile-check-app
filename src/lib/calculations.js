@@ -103,8 +103,17 @@ export function crossCheckDiff(a, b) {
  *  components can re-evaluate against the LIVE project tolerance instead of
  *  trusting `results.posCheck`, which is cached at save time and goes stale
  *  the moment someone edits the tolerance in Settings afterward. */
-export function posCheckFor(totalDev, tolPositionM) {
-  return totalDev <= tolPositionM ? 'OK' : 'OVER';
+export function posCheckFor(r, tolPositionM) {
+  // ITP GMTP-CAZ-QC-ITP-020 item B.2: "Coordinate deviation: +/-150 mm measured at the cut-off level"
+  // -> N and E are checked SEPARATELY (|dN| <= tol AND |dE| <= tol), not the total vector (since 20-Oct-2026).
+  // Accepts a results-like object { diffN, diffE, totalDev }; a bare number is treated as legacy total.
+  if (r == null || tolPositionM == null) return null;
+  const eps = 1e-12;
+  if (typeof r === 'number') return r <= tolPositionM + eps ? 'OK' : 'OVER';
+  if (r.diffN != null && r.diffE != null) {
+    return Math.abs(r.diffN) <= tolPositionM + eps && Math.abs(r.diffE) <= tolPositionM + eps ? 'OK' : 'OVER';
+  }
+  return r.totalDev != null ? (r.totalDev <= tolPositionM + eps ? 'OK' : 'OVER') : null;
 }
 
 /**
@@ -145,7 +154,7 @@ export function computeAll({ design, stn, p1, p2, p3 = null, measuredSeabed = nu
   out.diffE = out.asbuiltE - design.pe;                               // AH
   out.dirE = out.diffE < 0 ? 'GO EAST' : 'GO WEST';                   // AI
   out.totalDev = Math.hypot(out.diffN, out.diffE);                    // AJ
-  out.posCheck = posCheckFor(out.totalDev, tol.positionM);            // AK
+  out.posCheck = posCheckFor(out, tol.positionM);                     // AK (ITP B.2: N and E separately)
 
   // --- Point-3 cross-check ---
   if (p3 && p3.n != null) {

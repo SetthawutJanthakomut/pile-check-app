@@ -1,6 +1,6 @@
 // Run: node tests/tolerance.test.js
 // Spec Table 4-1 verticality / rake checks (agreed 19-Oct-2026: interpolate N linearly).
-import { computeAll, rakeTolRatio, buildTol } from '../src/lib/calculations.js';
+import { computeAll, rakeTolRatio, buildTol, posCheckFor } from '../src/lib/calculations.js';
 
 let fail = 0;
 const eq = (name, got, exp, eps = 1e-6) => {
@@ -56,6 +56,12 @@ eq('1:4.5 tolRakeRatio', o.tolRakeRatio, 28.75);
 eq('vertical 1:80 OK', run('VERT.', null, 80, 45).slopeCheck, 'OK');
 eq('vertical 1:70 OVER', run('VERT.', null, 70, 45).slopeCheck, 'OVER');
 eq('vertical no rake check', run('VERT.', null, 80, 45).rakeCheck, null);
+
+// ITP B.2: position +/-150 mm, N and E separately (not the vector)
+eq('TP1-4 dN -0.102 dE -0.129 (total 0.165) -> OK', posCheckFor({ diffN: -0.102, diffE: -0.129, totalDev: 0.165 }, 0.15), 'OK');
+eq('dN 0.151 -> OVER', posCheckFor({ diffN: 0.151, diffE: 0, totalDev: 0.151 }, 0.15), 'OVER');
+eq('dE -0.20 -> OVER', posCheckFor({ diffN: 0.01, diffE: -0.2, totalDev: 0.2 }, 0.15), 'OVER');
+eq('exactly 0.150 -> OK', posCheckFor({ diffN: 0.15, diffE: -0.15, totalDev: 0.212 }, 0.15), 'OK');
 
 if (fail) { console.error(`\n${fail} FAILED`); process.exit(1); }
 console.log('\nall tolerance tests passed');
