@@ -31,8 +31,9 @@ eq('TP4-5 check', r.embedCheck, 'OK');
 const f = Math.round(5.227 / Math.sqrt(5.227 ** 2 + 1) * 1000) / 1000;   // 3-decimal factor
 const a = computePileLevels({ hi: 6.5, mark: 36.128, seabed: -6.547, V: 5.227, L: 38.2, Lc: 18.2 });
 eq('actual f', a.f, f, 1e-12);
-eq('actual tip', a.tip, 6.5 - 36.128 * f, 1e-12);
-eq('actual top', a.top, a.tip + 38.2 * f, 1e-12);
+const r3 = (x) => Math.round(x * 1000) / 1000;
+eq('actual tip', a.tip, r3(6.5 - r3(36.128 * f)), 1e-9);
+eq('actual top', a.top, r3(a.tip + r3(38.2 * f)), 1e-9);
 
 // TP1-1 record form (1:5.27, mark 36.372, H.I 6.5, L 38.2, Lc 18.2): f 0.982, tip -29.217, top +8.295, coating -9.577
 const c = computePileLevels({ hi: 6.5, mark: 36.372, seabed: -5.862, V: 5.27, L: 38.2, Lc: 18.2 });
@@ -42,6 +43,12 @@ eq('roundF 0.98153 -> 0.982', roundF(0.981526), 0.982);
 eq('TP1-1 tip', c.tip, -29.217, 5e-4);
 eq('TP1-1 top', c.top, 8.295, 5e-4);
 eq('TP1-1 coating bottom', c.coatingBottom, -9.577, 5e-4);
+
+// hand method: 1:5.27, mark 36.300 -> tip -29.147 (36.300×0.982 = 35.6466 -> 35.647), top = -29.147 + 37.512 = 8.365
+const h = computePileLevels({ hi: 6.5, mark: 36.3, seabed: -6, V: 5.27, L: 38.2, Lc: 18.2 });
+eq('hand-method tip', h.tip, -29.147, 1e-9);
+eq('hand-method top (not 8.366)', h.top, 8.365, 1e-9);
+eq('hand-method coating', h.coatingBottom, -9.507, 1e-9);
 
 const b = computePileLevels({ hi: 6.5, mark: 36.077, seabed: -7.789, V: 5.2, L: 38.2, Lc: 18.2 });
 eq('short coating NOT OK', b.embedCheck, 'NOT OK');

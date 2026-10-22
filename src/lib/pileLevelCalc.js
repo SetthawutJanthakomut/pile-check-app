@@ -16,6 +16,8 @@
 //
 // f is ROUNDED TO 3 DECIMALS before use (same as the site pile driving record form, 22-Oct-2026):
 //   1:5.27 -> 0.982469 -> f = 0.982
+// and each product length × f is rounded to 3 decimals as on the form: tip = H.I - ROUND(mark×f,3),
+//   top = tip + ROUND(L×f,3), coating bottom = top - ROUND(Lc×f,3)  (matches a hand calculation)
 
 /** Slope factors for 1:V. V null / ≤0 / non-finite = vertical (f = 1). */
 export function slopeFactors(V) {
@@ -55,9 +57,11 @@ export function computePileLevels({ hi, mark, seabed, V, L, Lc, embedMin = 2.0 }
   if (!isNum(hi) || !isNum(mark)) return null;
   const fx = slopeFactors(V == null ? null : Number(V));
   const f = roundF(fx.vertPerAlong);   // 3-decimal factor, as the record form
-  const tip = Number(hi) - Number(mark) * f;
-  const top = isNum(L) ? tip + Number(L) * f : null;
-  const coatingBottom = top != null && isNum(Lc) ? top - Number(Lc) * f : null;
+  // hand method of the record form: every product (length × f) rounded to 3 decimals, then added
+  const r3 = (x) => Math.round((x + (x >= 0 ? 1e-9 : -1e-9)) * 1000) / 1000;
+  const tip = r3(Number(hi) - r3(Number(mark) * f));
+  const top = isNum(L) ? r3(tip + r3(Number(L) * f)) : null;
+  const coatingBottom = top != null && isNum(Lc) ? r3(top - r3(Number(Lc) * f)) : null;
   const embed = coatingBottom != null && isNum(seabed) ? Number(seabed) - coatingBottom : null;
   return {
     factors: fx,
