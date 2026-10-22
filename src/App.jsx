@@ -8,6 +8,7 @@ import Login from './pages/Login';
 import SetNewPassword from './pages/SetNewPassword';
 import FormPage from './pages/FormPage';
 import SetOutPage from './pages/SetOutPage';
+import PileLevelPage from './pages/PileLevelPage';
 import PilesTable from './pages/PilesTable';
 import BenchmarksTable from './pages/BenchmarksTable';
 import RecordsTable from './pages/RecordsTable';
@@ -22,6 +23,7 @@ import { ROLE_KEY } from './lib/statusLabels';
 const PAGES = [
   { key: 'form', labelKey: 'nav.form' },
   { key: 'setout', labelKey: 'nav.setout' },
+  { key: 'levels', labelKey: 'nav.levels' },
   { key: 'plan', labelKey: 'nav.plan' },
   { key: 'piles', labelKey: 'nav.designPiles' },
   { key: 'benchmarks', labelKey: 'nav.benchmarks' },
@@ -234,6 +236,9 @@ function AppInner() {
       </div>
       <div style={{ display: page === 'setout' ? '' : 'none' }}>
         <SetOutPage session={session} />
+      </div>
+      <div style={{ display: page === 'levels' ? '' : 'none' }}>
+        <PileLevelPage session={session} role={role} />
       </div>
       <div style={{ display: page === 'plan' ? '' : 'none' }}>
         <PlanView

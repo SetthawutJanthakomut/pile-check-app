@@ -159,7 +159,7 @@ export default function PileReport({ record, pile, station, backsight, tol, sibl
             <tr><td>Diff Northing</td><td className="r mono"><b>{fmt(results.diffN)}</b></td><td><span className="go">{results.dirN}</span></td></tr>
             <tr><td>Diff Easting</td><td className="r mono"><b>{fmt(results.diffE)}</b></td><td><span className="go">{results.dirE}</span></td></tr>
             <tr><td>Position check (ITP B.2)</td><td className="r mono"><b>{posCheck}</b></td><td className="rem">|dN| and |dE| each &le; &plusmn;{fmt(tol.positionM, 3)} m at cut-off</td></tr>
-            <tr><td>Actual slope</td><td className="r mono"><b>1 : {fmt(results.slope, 2)}</b></td><td className="rem">design {inc.vertical ? 'VERT' : `1 : ${inc.ratio}`}</td></tr>
+            <tr><td>Actual slope</td><td className="r mono"><b>1 : {fmt(results.slope, 3)}</b></td><td className="rem">design {inc.vertical ? 'VERT' : `1 : ${inc.ratio}`}</td></tr>
             {results.devRakeRatio != null && (
               <tr><td>Deviation in direction of rake</td><td className="r mono"><b>1 : {Math.round(results.devRakeRatio)}</b></td><td className="rem">limit 1 : {fmt(results.tolRakeRatio, 2)} (Spec Table 4-1) · {results.rakeCheck}</td></tr>
             )}
@@ -182,7 +182,7 @@ export default function PileReport({ record, pile, station, backsight, tol, sibl
             </div>
             <div className={`stamp ${results.slopeCheck === 'OK' ? 'pass' : 'fail'}`}>
               <b>SLOPE {results.slopeCheck}</b>
-              <small>1:{fmt(results.slope, 2)} vs {inc.vertical ? 'VERT' : `1:${inc.ratio}`}</small>
+              <small>1:{fmt(results.slope, 3)} vs {inc.vertical ? 'VERT' : `1:${inc.ratio}`}</small>
             </div>
             {hasP3 && (
               <div className={`stamp ${results.p3Check === 'OK' ? 'pass' : 'fail'}`}>
