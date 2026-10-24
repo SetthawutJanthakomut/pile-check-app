@@ -8,6 +8,7 @@ import { compressPhoto, uploadPhoto, deletePhoto, fetchPhotos, photoUrl, PHOTO_T
 import { BOOL_KEY } from '../lib/statusLabels';
 import ResultReadout from '../components/ResultReadout';
 import SearchSelect from '../components/SearchSelect';
+import { canEditRecord } from '../lib/recordActions';
 
 const fmt = (v, d = 3) => (v == null || Number.isNaN(v) ? '—' : Number(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }));
 const num = (s) => (s === '' || s == null ? null : Number(s));
@@ -19,7 +20,7 @@ const ALL_ZONES = '__all__';
 const STAGE_KEY = { before: 'common.stage.before', after: 'common.stage.after' };
 const PHOTO_TYPE_KEY = { pile: 'common.photos.typePile', ts_screen: 'common.photos.typeTsScreen', other: 'common.photos.typeOther' };
 
-export default function FormPage({ session, role, active, editRecord, onCancelEdit, onEditSaved }) {
+export default function FormPage({ session, role, active, editRecord, onCancelEdit, onEditSaved, onRequestEdit }) {
   const { t } = useTranslation();
   const canSave = role === 'admin' || role === 'recorder';
   const [piles, setPiles] = useState([]);
@@ -214,6 +215,44 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
   }
 
   const pile = piles.find((p) => p.id === pileId) ?? null;
+
+  // Records already saved for this pile + stage: the user picks "edit one of them" or "add a new survey".
+  const [existing, setExisting] = useState({ key: '', rows: [], loading: false, error: null });
+  const existingKey = pileId && stage ? `${pileId}|${stage}` : '';
+  useEffect(() => {
+    if (!existingKey || editRecord) { setExisting({ key: '', rows: [], loading: false, error: null }); return; }
+    let cancelled = false;
+    setExisting((x) => ({ ...x, key: existingKey, loading: true, error: null }));
+    supabase.from('asbuilt_records')
+      .select('*, piles(pile_no, zone), station:benchmarks!station_id(name), backsight:benchmarks!backsight_id(name), survey_points(point_no, northing, easting, elevation)')
+      .eq('pile_id', pileId).eq('pile_stage', stage)
+      .order('measured_time', { ascending: false })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        setExisting({ key: existingKey, rows: error ? [] : (data || []), loading: false, error: error ? error.message : null });
+      });
+    return () => { cancelled = true; };
+  }, [existingKey, editRecord]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function copySetupFrom(r) {
+    setStnSelect(r.station_id ?? ''); setStnName('');
+    setBsId(r.backsight_id ?? '');
+  }
+  const ptsOf = (r) => { const m = {}; (r.survey_points || []).forEach((p) => { m[p.point_no] = p; }); return m; };
+  // Load every value of a saved record into the form as a NEW record (STN, BS, 3 points N/E/Z, seabed) -
+  // correct what is wrong and save; the original record is left untouched.
+  function copyAllFrom(r) {
+    const toPt = (p) => (p ? { n: String(p.northing), e: String(p.easting), el: String(p.elevation) } : { ...EMPTY_PT });
+    const pts = ptsOf(r);
+    copySetupFrom(r);
+    setBsN(r.bs_measured_n != null ? String(r.bs_measured_n) : '');
+    setBsE(r.bs_measured_e != null ? String(r.bs_measured_e) : '');
+    setP1(toPt(pts[1])); setP2(toPt(pts[2])); setP3(toPt(pts[3]));
+    setSeabed(r.measured_seabed != null ? String(r.measured_seabed) : '');
+    setAttemptedSave(false);
+    setToast({ type: 'ok', msg: t('form.existingCopiedToast') });
+    setTimeout(() => setToast(null), 3000);
+  }
 
   const pileZones = useMemo(() => [...new Set(piles.map((p) => p.zone).filter(Boolean))].sort(), [piles]);
   const pileOptions = useMemo(() => {
@@ -531,6 +570,69 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
           </div>
         )}
         <div className="field">
+          <span>{t('form.stageLabel')} <span className="req-star">*</span></span>
+          <div className={`stage-toggle${attemptedSave && !stage ? ' input-error' : ''}`}>
+            {['before', 'after'].map((sv) => (
+              <button key={sv} type="button" className={`stage-btn${stage === sv ? ' active' : ''}`}
+                      disabled={!!editRecord} onClick={() => setStage(sv)}>
+                {t(STAGE_KEY[sv])}
+              </button>
+            ))}
+          </div>
+        </div>
+        {!editRecord && existingKey && (
+          <div className="existing-box">
+            {existing.loading && <p className="hint">{t('form.existingLoading')}</p>}
+            {!existing.loading && existing.rows.length === 0 && (
+              <p className="hint">{existing.error ? t('form.existingOffline') : t('form.existingNone')}</p>
+            )}
+            {!existing.loading && existing.rows.length > 0 && (
+              <>
+                <div className="existing-head">
+                  <strong>{t('form.existingTitle', { count: existing.rows.length })}</strong>
+                  <span className="hint">{t('form.existingHint')}</span>
+                </div>
+                <ul className="existing-list">
+                  {existing.rows.map((r) => {
+                    const res = r.results || {};
+                    const mine = canEditRecord(r, session, role);
+                    return (
+                      <li key={r.id} className={r.is_primary ? 'primary' : ''}>
+                        <div className="existing-info mono">
+                          <b>{new Date(r.measured_time || r.measured_at).toLocaleString()}</b>
+                          {r.is_primary && <span className="tag">{t('form.existingPrimary')}</span>}
+                          <span>STN {r.station?.name ?? '—'} · BS {r.backsight?.name ?? '—'}</span>
+                          <span>ΔN {res.diffN != null ? fmt(res.diffN * 1000, 0) : '—'} · ΔE {res.diffE != null ? fmt(res.diffE * 1000, 0) : '—'} mm · {res.posCheck ?? '—'}</span>
+                          {r.surveyor && <span>{r.surveyor}</span>}
+                          <table className="existing-pts">
+                            <thead><tr><th></th><th>N</th><th>E</th><th>Z</th></tr></thead>
+                            <tbody>
+                              {[[1, t('form.existingPtTop')], [3, t('form.existingPtMid')], [2, t('form.existingPtBottom')]].map(([no, lab]) => {
+                                const p = ptsOf(r)[no];
+                                return p ? (
+                                  <tr key={no}><th>{lab}</th><td>{fmt(p.northing, 4)}</td><td>{fmt(p.easting, 4)}</td><td>{fmt(p.elevation, 3)}</td></tr>
+                                ) : null;
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                        <div className="existing-actions">
+                          {mine
+                            ? <button type="button" className="btn-secondary" onClick={() => onRequestEdit?.(r)}>{t('form.existingEditBtn')}</button>
+                            : <span className="hint">{t('form.existingNotMine')}</span>}
+                          <button type="button" className="btn-secondary" onClick={() => copyAllFrom(r)}>{t('form.existingCopyAll')}</button>
+                          <button type="button" className="link" onClick={() => copySetupFrom(r)}>{t('form.existingCopySetup')}</button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <p className="existing-mode">✚ {t('form.existingAddNew')}</p>
+              </>
+            )}
+          </div>
+        )}
+        <div className="field">
           <span>{t('form.stationLabel')} <span className="req-star">*</span></span>
           <SearchSelect
             options={stnOptions}
@@ -562,19 +664,7 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
 
       {/* ---------- stage & note ---------- */}
       <section className="card">
-        <h2 className="card-title">{t('form.cardStageNote')}</h2>
-        <label className="field">
-          <span>{t('form.stageLabel')} <span className="req-star">*</span></span>
-          <select
-            value={stage}
-            onChange={(e) => setStage(e.target.value)}
-            className={attemptedSave && !stage ? 'input-error' : undefined}
-          >
-            <option value="">{t('form.stageSelectPlaceholder')}</option>
-            <option value="before">{t('common.stage.before')}</option>
-            <option value="after">{t('common.stage.after')}</option>
-          </select>
-        </label>
+        <h2 className="card-title">{t('form.cardNote')}</h2>
         <label className="field">
           <span>{t('form.noteLabel')}</span>
           <input value={note} onChange={(e) => setNote(e.target.value)} placeholder={t('form.notePlaceholder')} />

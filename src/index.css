@@ -709,3 +709,24 @@ body {
   .lightbox-prev { left: -52px; }
   .lightbox-next { right: -52px; }
 }
+
+/* ---------- form: stage toggle + saved records for pile/stage ---------- */
+.stage-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.stage-toggle.input-error { outline: 2px solid var(--fail, #c92a2a); border-radius: 10px; }
+.stage-btn { min-height: 46px; font: 700 15px var(--font); border-radius: 10px; border: 1.5px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; }
+.stage-btn.active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.stage-btn:disabled { opacity: .7; cursor: default; }
+.existing-box { border: 1.5px dashed var(--accent); border-radius: 10px; padding: 10px; margin: 4px 0 12px; background: color-mix(in srgb, var(--accent) 6%, var(--card)); }
+.existing-head { display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; }
+.existing-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.existing-list li { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); }
+.existing-list li.primary { border-color: var(--accent); }
+.existing-info { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
+.existing-info .tag { align-self: flex-start; font-size: 10px; padding: 1px 6px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); }
+.existing-actions { display: flex; align-items: center; gap: 10px; }
+.existing-mode { margin: 8px 0 0; font-size: 12px; font-weight: 600; color: var(--ink-soft); }
+.existing-pts { border-collapse: collapse; margin-top: 4px; font-size: 11px; }
+.existing-pts th, .existing-pts td { padding: 1px 6px 1px 0; text-align: right; white-space: nowrap; }
+.existing-pts th:first-child { text-align: left; font-weight: 600; color: var(--ink-soft); }
+.existing-pts thead th { color: var(--ink-soft); font-weight: 600; }
+.existing-actions { flex-wrap: wrap; }

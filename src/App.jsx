@@ -231,6 +231,7 @@ function AppInner() {
           active={page === 'form'}
           editRecord={editRecord}
           onCancelEdit={() => setEditRecord(null)}
+          onRequestEdit={(record) => setEditRecord(record)}
           onEditSaved={() => { setEditRecord(null); setPage('records'); }}
         />
       </div>
