@@ -50,6 +50,9 @@ eq('hand-method tip', h.tip, -29.147, 1e-9);
 eq('hand-method top (not 8.366)', h.top, 8.365, 1e-9);
 eq('hand-method coating', h.coatingBottom, -9.507, 1e-9);
 
+// slope taken to 3 decimals: 1:5.2664 and 1:5.266 give the same result
+eq('V rounded to 3 dp', computePileLevels({ hi: 6.5, mark: 36.3, V: 5.2664, L: 38.2, Lc: 18.2 }).factors.V, 5.266);
+
 const b = computePileLevels({ hi: 6.5, mark: 36.077, seabed: -7.789, V: 5.2, L: 38.2, Lc: 18.2 });
 eq('short coating NOT OK', b.embedCheck, 'NOT OK');
 eq('null until H.I + mark', computePileLevels({ hi: null, mark: 36, V: 5 }), null);

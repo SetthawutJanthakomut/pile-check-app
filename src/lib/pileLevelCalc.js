@@ -55,7 +55,8 @@ const isNum = (x) => x != null && x !== '' && Number.isFinite(Number(x));
 /** Compute final levels. Inputs in metres / mPD. Returns null until H.I and mark are given. */
 export function computePileLevels({ hi, mark, seabed, V, L, Lc, embedMin = 2.0 }) {
   if (!isNum(hi) || !isNum(mark)) return null;
-  const fx = slopeFactors(V == null ? null : Number(V));
+  // slope 1:V is taken to 3 decimals as well (e.g. 1:107.290) before the factors are worked out
+  const fx = slopeFactors(V == null ? null : Math.round(Number(V) * 1000) / 1000);
   const f = roundF(fx.vertPerAlong);   // 3-decimal factor, as the record form
   // hand method of the record form: every product (length × f) rounded to 3 decimals, then added
   const r3 = (x) => Math.round((x + (x >= 0 ? 1e-9 : -1e-9)) * 1000) / 1000;

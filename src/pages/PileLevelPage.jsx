@@ -155,7 +155,7 @@ export default function PileLevelPage({ session, role }) {
     loadList();
   }
 
-  const fx = result?.factors ?? slopeFactors(Vused);
+  const fx = result?.factors ?? slopeFactors(Vused == null ? null : Math.round(Vused * 1000) / 1000);
   const savedDiffers = saved && result && (
     Math.abs(saved.pile_tip - result.tip) > 0.0005 || num(seabed) !== (saved.seabed == null ? null : Number(saved.seabed))
   );
@@ -208,11 +208,11 @@ export default function PileLevelPage({ session, role }) {
           <div className="readout mono">
             <div className="readout-head">{t('levels.factorHead', { v: Vused == null ? '∞ (VERT)' : fmt(Vused, 3) })}</div>
             <div className="readout-grid">
-              <div><span>{t('levels.fx.hyp')}</span><b>{fx.hyp == null ? '—' : fmt(fx.hyp, 4)}</b></div>
-              <div><span>{t('levels.fx.alongPerVert')}</span><b>× {fmt(fx.alongPerVert, 4)}</b></div>
-              <div><span>{t('levels.fx.vertPerAlong')}</span><b>× {fmt(fx.vertPerAlong, 4)} → {fmt(roundF(fx.vertPerAlong), 3)}</b></div>
-              <div><span>{t('levels.fx.horizPerAlong')}</span><b>× {fmt(fx.horizPerAlong, 4)}</b></div>
-              <div><span>{t('levels.fx.tilt')}</span><b>{fmt(fx.tiltDeg, 2)}°</b></div>
+              <div><span>{t('levels.fx.hyp')}</span><b>{fx.hyp == null ? '—' : fmt(fx.hyp, 3)}</b></div>
+              <div><span>{t('levels.fx.alongPerVert')}</span><b>× {fmt(fx.alongPerVert, 3)}</b></div>
+              <div><span>{t('levels.fx.vertPerAlong')}</span><b>× {fmt(roundF(fx.vertPerAlong), 3)}</b></div>
+              <div><span>{t('levels.fx.horizPerAlong')}</span><b>× {fmt(fx.horizPerAlong, 3)}</b></div>
+              <div><span>{t('levels.fx.tilt')}</span><b>{fmt(fx.tiltDeg, 3)}°</b></div>
             </div>
           </div>
         </section>

@@ -16,7 +16,7 @@ const MUTED_COLOR = '#46586b';
 // text can never drift apart.
 // `tolerance` is optional — when omitted (RecordDetailModal's quick view has no
 // tolerance settings loaded), the ring and the "/ tol" caption suffix are left out.
-export default function DeviationPlanView({ diffN, diffE, totalDev, tolerance, posCheck, className = '' }) {
+export default function DeviationPlanView({ diffN, diffE, totalDev, tolerance, posCheck, pileNo, className = '' }) {
   const { t } = useTranslation();
   const reach = Math.max(Math.abs(diffN), Math.abs(diffE));
   const maxView = Math.max(tolerance ?? reach, reach, 0.02) * 1.35; // tolerance is a +/-tol square (N and E separately)
@@ -44,6 +44,9 @@ export default function DeviationPlanView({ diffN, diffE, totalDev, tolerance, p
         <line x1="0" y1={-maxView} x2="0" y2={maxView} stroke={AXIS_COLOR} strokeWidth={maxView * 0.012} strokeDasharray={`${maxView * 0.04} ${maxView * 0.04}`} />
         <line x1={-maxView} y1="0" x2={maxView} y2="0" stroke={AXIS_COLOR} strokeWidth={maxView * 0.012} strokeDasharray={`${maxView * 0.04} ${maxView * 0.04}`} />
         <text x={-maxView * 0.97} y={-maxView * 0.05} textAnchor="start" fontSize={fontSize} fill={MUTED_COLOR}>← N</text>
+        {pileNo && (
+          <text x={-maxView * 0.95} y={-maxView * 0.8} textAnchor="start" fontSize={fontSize * 1.5} fontWeight="700" fill={AXIS_COLOR}>{pileNo}</text>
+        )}
         {tolerance != null && (
           <rect x={-tolerance} y={-tolerance} width={tolerance * 2} height={tolerance * 2} fill="none" stroke={AXIS_COLOR} strokeWidth={maxView * 0.02} strokeDasharray={`${maxView * 0.05} ${maxView * 0.05}`} />
         )}

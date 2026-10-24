@@ -204,6 +204,7 @@ export default function PileReport({ record, pile, station, backsight, tol, sibl
               totalDev={results.totalDev}
               tolerance={tol.positionM}
               posCheck={posCheck}
+              pileNo={pile.pile_no}
             />
           </div>
         </div>
