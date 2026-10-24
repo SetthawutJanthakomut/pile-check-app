@@ -7,7 +7,9 @@ import SearchSelect from '../components/SearchSelect';
 
 const fmt = (v, d = 3) => (v == null || Number.isNaN(Number(v)) ? '—' : Number(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }));
 const sgn = (v, d = 3) => (v == null || Number.isNaN(Number(v)) ? '—' : `${Number(v) >= 0 ? '+' : ''}${fmt(v, d)}`);
-const num = (s) => (s === '' || s == null ? null : Number(s));
+const num = (s) => (s === '' || s == null || s === '-' ? null : Number(s));
+// phone keypads (inputMode decimal) have no minus key - the ± button flips the sign (empty -> '-' so the number can follow)
+const flipSign = (s) => (s === '' || s == null ? '-' : (s.startsWith('-') ? s.slice(1) : `-${s}`));
 const ALL_ZONES = '__all__';
 const fmtTime = (ts) => (ts ? new Date(ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—');
 
@@ -223,12 +225,18 @@ export default function PileLevelPage({ session, role }) {
           <h2 className="card-title">{t('levels.cardInput')}</h2>
           <div className="grid2">
             <label className="field"><span>{t('levels.hi')}</span>
-              <input inputMode="decimal" value={hi} onChange={(e) => setHi(e.target.value)} placeholder="6.500" /></label>
+              <div className="num-wrap">
+                <input inputMode="decimal" value={hi} onChange={(e) => setHi(e.target.value)} placeholder="6.500" />
+                <button type="button" className="sign-toggle" onClick={() => setHi(flipSign(hi))}>±</button>
+              </div></label>
             <label className="field"><span>{t('levels.mark')}</span>
               <input inputMode="decimal" value={mark} onChange={(e) => setMark(e.target.value)} placeholder="36.128" /></label>
           </div>
           <label className="field"><span>{t('levels.seabed')}</span>
-            <input inputMode="decimal" value={seabed} onChange={(e) => setSeabed(e.target.value)} placeholder="-6.547" /></label>
+            <div className="num-wrap">
+              <input inputMode="decimal" value={seabed} onChange={(e) => setSeabed(e.target.value)} placeholder="-6.547" />
+              <button type="button" className="sign-toggle" onClick={() => setSeabed(flipSign(seabed))}>±</button>
+            </div></label>
           <label className="field"><span>{t('levels.note')}</span>
             <input value={note} onChange={(e) => setNote(e.target.value)} /></label>
         </section>
