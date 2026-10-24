@@ -9,7 +9,7 @@ import { BOOL_KEY } from '../lib/statusLabels';
 import ResultReadout from '../components/ResultReadout';
 import SearchSelect from '../components/SearchSelect';
 import { canEditRecord } from '../lib/recordActions';
-import { recordToFormValues, recordPoints } from '../lib/recordForm';
+import { recordToFormValues, recordPoints, findDuplicate } from '../lib/recordForm';
 
 const fmt = (v, d = 3) => (v == null || Number.isNaN(v) ? '—' : Number(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }));
 const num = (s) => (s === '' || s == null ? null : Number(s));
@@ -278,6 +278,25 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
   const bs = benchmarks.find((b) => b.id === bsId) ?? null;
   const stationSelected = !!stnMatch || stnIsNew;
 
+  // Exact-duplicate guard: same STN, BS, BS measured N/E, P1/P2/P3 N E Z and seabed as a saved
+  // record of this pile + stage -> warn and do not save (time / note / surveyor are not compared).
+  const formVals = { stationId: stnIsNew ? null : (stnMatch?.id ?? null), backsightId: bs?.id ?? '', bsN, bsE, p1, p2, p3, seabed };
+  const liveDup = !editRecord && existing.key === existingKey ? findDuplicate(formVals, existing.rows) : null;
+  const dupTime = (r) => new Date(r.measured_time || r.measured_at).toLocaleString();
+  function showDupToast(r) {
+    setToast({ type: 'err', msg: t('form.duplicateToast', { time: dupTime(r) }) });
+    setTimeout(() => setToast(null), 6000);
+  }
+  // fresh check against the server at save time (covers edit mode and records saved by others meanwhile)
+  async function checkDuplicate(excludeId) {
+    if (!stage || !navigator.onLine) return findDuplicate(formVals, existing.rows, excludeId);
+    const { data, error } = await supabase.from('asbuilt_records')
+      .select('id, measured_at, measured_time, station_id, backsight_id, bs_measured_n, bs_measured_e, measured_seabed, survey_points(point_no, northing, easting, elevation)')
+      .eq('pile_id', pile.id).eq('pile_stage', stage);
+    if (error) return findDuplicate(formVals, existing.rows, excludeId);
+    return findDuplicate(formVals, data, excludeId);
+  }
+
   // Fields required before Save is enabled. Point 3, Note, BS measured N/E,
   // and Measured seabed are intentionally excluded — they never block save.
   const missingRequired = useMemo(() => [
@@ -367,6 +386,7 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
 
   function attemptSave() {
     if (saving) return;
+    if (liveDup) { showDupToast(liveDup); return; }
     if (saveBlocked) {
       setAttemptedSave(true);
       if (missingRequired.length > 0) {
@@ -384,6 +404,9 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
   async function save() {
     if (!results) return;
     setSaving(true);
+
+    const dup = await checkDuplicate(editRecord?.id ?? null);
+    if (dup) { showDupToast(dup); setSaving(false); return; }
 
     if (!editRecord) return saveNew();
 
@@ -596,7 +619,7 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
                     const res = r.results || {};
                     const mine = canEditRecord(r, session, role);
                     return (
-                      <li key={r.id} className={r.is_primary ? 'primary' : ''}>
+                      <li key={r.id} className={[r.is_primary ? 'primary' : '', liveDup?.id === r.id ? 'dup' : ''].join(' ').trim()}>
                         <div className="existing-info mono">
                           <b>{new Date(r.measured_time || r.measured_at).toLocaleString()}</b>
                           {r.is_primary && <span className="tag">{t('form.existingPrimary')}</span>}
@@ -626,7 +649,9 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
                     );
                   })}
                 </ul>
-                <p className="existing-mode">✚ {t('form.existingAddNew')}</p>
+                {liveDup
+                  ? <p className="dup-warn">⚠ {t('form.duplicateWarn', { time: dupTime(liveDup) })}</p>
+                  : <p className="existing-mode">✚ {t('form.existingAddNew')}</p>}
               </>
             )}
           </div>
@@ -765,7 +790,7 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
             <span>{t('form.shareToTeamLabel')}</span>
           </label>
           <button
-            className={`btn-save${saveBlocked ? ' btn-save-blocked' : ''}`}
+            className={`btn-save${saveBlocked || liveDup ? ' btn-save-blocked' : ''}`}
             disabled={saving}
             onClick={attemptSave}
           >

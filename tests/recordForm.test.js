@@ -1,6 +1,6 @@
 // Run: node tests/recordForm.test.js
 // "Load all values" on the Form page: a saved record must come back as the exact N/E/Z of all 3 points.
-import { recordToFormValues, recordPoints } from '../src/lib/recordForm.js';
+import { recordToFormValues, recordPoints, isSameSurvey, findDuplicate } from '../src/lib/recordForm.js';
 
 let fail = 0;
 const eq = (name, got, exp) => {
@@ -31,6 +31,23 @@ eq('missing seabed / BS N -> blank', [noP3.seabed, noP3.bsN], ['', '']);
 eq('zero values are kept (not blank)', recordToFormValues({ survey_points: [{ point_no: 1, northing: 0, easting: 0, elevation: 0 }] }).p1, { n: '0', e: '0', el: '0' });
 eq('no survey_points', recordPoints({}), {});
 eq('null record', recordToFormValues(null).p1, { n: '', e: '', el: '' });
+
+// ---- duplicate guard (Save must be blocked when every value is identical to a saved record) ----
+const same = recordToFormValues(rec);
+eq('identical values -> duplicate', isSameSurvey(same, rec), true);
+eq('typed numbers with comma / trailing zero still identical', isSameSurvey({ ...same, p1: { n: '10,167.34010', e: '10486.9158', el: '6.500' } }, rec), true);
+eq('one Z differs by 1 mm -> not duplicate', isSameSurvey({ ...same, p2: { ...same.p2, el: '2.105' } }, rec), false);
+eq('different STN -> not duplicate', isSameSurvey({ ...same, stationId: 's2' }, rec), false);
+eq('different BS -> not duplicate', isSameSurvey({ ...same, backsightId: 'b9' }, rec), false);
+eq('new station (no id) -> never duplicate', isSameSurvey({ ...same, stationId: null }, rec), false);
+eq('seabed differs -> not duplicate', isSameSurvey({ ...same, seabed: '-7.788' }, rec), false);
+eq('seabed blank vs saved value -> not duplicate', isSameSurvey({ ...same, seabed: '' }, rec), false);
+eq('P3 typed but record has no P3 -> not duplicate', isSameSurvey(same, { ...rec, survey_points: rec.survey_points.filter((p) => p.point_no !== 3) }), false);
+eq('both without P3 -> duplicate', isSameSurvey({ ...same, p3: { n: '', e: '', el: '' } }, { ...rec, survey_points: rec.survey_points.filter((p) => p.point_no !== 3) }), true);
+const list = [{ ...rec, id: 'a', survey_points: [] }, { ...rec, id: 'b' }];
+eq('findDuplicate returns the matching record', findDuplicate(same, list)?.id, 'b');
+eq('findDuplicate skips the record being edited', findDuplicate(same, list, 'b'), null);
+eq('findDuplicate with no records', findDuplicate(same, null), null);
 
 if (fail) { console.log(`\n${fail} FAILED`); process.exit(1); }
 console.log('\nall record-form tests passed');
