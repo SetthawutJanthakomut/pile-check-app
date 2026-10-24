@@ -9,6 +9,7 @@ import { BOOL_KEY } from '../lib/statusLabels';
 import ResultReadout from '../components/ResultReadout';
 import SearchSelect from '../components/SearchSelect';
 import { canEditRecord } from '../lib/recordActions';
+import { recordToFormValues, recordPoints } from '../lib/recordForm';
 
 const fmt = (v, d = 3) => (v == null || Number.isNaN(v) ? '—' : Number(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }));
 const num = (s) => (s === '' || s == null ? null : Number(s));
@@ -238,17 +239,15 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
     setStnSelect(r.station_id ?? ''); setStnName('');
     setBsId(r.backsight_id ?? '');
   }
-  const ptsOf = (r) => { const m = {}; (r.survey_points || []).forEach((p) => { m[p.point_no] = p; }); return m; };
+  const ptsOf = recordPoints;
   // Load every value of a saved record into the form as a NEW record (STN, BS, 3 points N/E/Z, seabed) -
   // correct what is wrong and save; the original record is left untouched.
   function copyAllFrom(r) {
-    const toPt = (p) => (p ? { n: String(p.northing), e: String(p.easting), el: String(p.elevation) } : { ...EMPTY_PT });
-    const pts = ptsOf(r);
+    const v = recordToFormValues(r);
     copySetupFrom(r);
-    setBsN(r.bs_measured_n != null ? String(r.bs_measured_n) : '');
-    setBsE(r.bs_measured_e != null ? String(r.bs_measured_e) : '');
-    setP1(toPt(pts[1])); setP2(toPt(pts[2])); setP3(toPt(pts[3]));
-    setSeabed(r.measured_seabed != null ? String(r.measured_seabed) : '');
+    setBsN(v.bsN); setBsE(v.bsE);
+    setP1(v.p1); setP2(v.p2); setP3(v.p3);
+    setSeabed(v.seabed);
     setAttemptedSave(false);
     setToast({ type: 'ok', msg: t('form.existingCopiedToast') });
     setTimeout(() => setToast(null), 3000);
