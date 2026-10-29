@@ -177,7 +177,7 @@ export default function RecordDetailModal({ row, group, tolCrossCheckM, tolPosit
               <button className="link" onClick={onClose}>{t('records.modal.closeBtn')}</button>
             </div>
           </div>
-          <ResultReadout results={primary} p1El={primary.p1el} tol={tolPositionM != null ? { positionM: tolPositionM } : undefined} stage={primary.pile_stage} note={primary.note} />
+          <ResultReadout results={primary} p1El={primary.p1el} measuredAt={primary.measured_time} tol={tolPositionM != null ? { positionM: tolPositionM } : undefined} stage={primary.pile_stage} note={primary.note} />
           <PhotoStrip recordId={primary.id} pending={primary._pending} />
           <OtherSurveys members={stageGroup} primary={primary} tol={tolCrossCheckM} canSetPrimary={canSetPrimary} onSetPrimary={onSetPrimary} />
           <button className="btn-secondary" onClick={() => exportRecordsToExcel(columns, [primary])}>
@@ -238,7 +238,7 @@ export default function RecordDetailModal({ row, group, tolCrossCheckM, tolPosit
             <CardActions record={beforePrimary} session={session} role={role} onEditRecord={onEditRecord} onDeleteRecord={onDeleteRecord} />
             <p className="hint">{beforePrimary.surveyor} · {fmtWhen(beforePrimary)}</p>
             <CrossCheckBadge cc={ccBefore} tol={tolCrossCheckM} />
-            <ResultReadout results={beforePrimary} p1El={beforePrimary.p1el} tol={tolPositionM != null ? { positionM: tolPositionM } : undefined} stage="before" note={beforePrimary.note} />
+            <ResultReadout results={beforePrimary} p1El={beforePrimary.p1el} measuredAt={beforePrimary.measured_time} tol={tolPositionM != null ? { positionM: tolPositionM } : undefined} stage="before" note={beforePrimary.note} />
             <PhotoStrip recordId={beforePrimary.id} pending={beforePrimary._pending} />
             <OtherSurveys members={beforeGroup} primary={beforePrimary} tol={tolCrossCheckM} canSetPrimary={canSetPrimary} onSetPrimary={onSetPrimary} />
             <label className="share-toggle">
@@ -263,7 +263,7 @@ export default function RecordDetailModal({ row, group, tolCrossCheckM, tolPosit
             <CardActions record={afterPrimary} session={session} role={role} onEditRecord={onEditRecord} onDeleteRecord={onDeleteRecord} />
             <p className="hint">{afterPrimary.surveyor} · {fmtWhen(afterPrimary)}</p>
             <CrossCheckBadge cc={ccAfter} tol={tolCrossCheckM} />
-            <ResultReadout results={afterPrimary} p1El={afterPrimary.p1el} tol={tolPositionM != null ? { positionM: tolPositionM } : undefined} stage="after" note={afterPrimary.note} />
+            <ResultReadout results={afterPrimary} p1El={afterPrimary.p1el} measuredAt={afterPrimary.measured_time} tol={tolPositionM != null ? { positionM: tolPositionM } : undefined} stage="after" note={afterPrimary.note} />
             <PhotoStrip recordId={afterPrimary.id} pending={afterPrimary._pending} />
             <OtherSurveys members={afterGroup} primary={afterPrimary} tol={tolCrossCheckM} canSetPrimary={canSetPrimary} onSetPrimary={onSetPrimary} />
             <label className="share-toggle">

@@ -737,7 +737,7 @@ export default function FormPage({ session, role, active, editRecord, onCancelEd
       </section>
 
       {/* ---------- readout ---------- */}
-      {results && <ResultReadout results={results} p1El={p1.el} tol={tol} inc={inc} stage={stage} note={note} pileNo={pile?.pile_no} />}
+      {results && <ResultReadout results={results} p1El={p1.el} tol={tol} inc={inc} stage={stage} note={note} pileNo={pile?.pile_no} measuredAt={editRecord?.measured_time} />}
 
       {/* ---------- photos ---------- */}
       <section className="card">

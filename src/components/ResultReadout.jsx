@@ -12,7 +12,7 @@ const STAGE_LABEL_KEY = {
 // Read-only as-built summary panel. Shared by the live Form and the Records detail view.
 // `tol` and `inc` are optional — when omitted, the tolerance/design-slope hints are left out.
 // `stage` and `note` are optional — when omitted, the stage/note block is left out.
-export default function ResultReadout({ results, p1El, tol, inc, stage, note, pileNo }) {
+export default function ResultReadout({ results, p1El, tol, inc, stage, note, pileNo, measuredAt }) {
   const { t } = useTranslation();
   // Re-evaluate against the LIVE tolerance rather than trusting the cached
   // results.posCheck, which reflects whatever tolerance was set at save time.
@@ -33,7 +33,8 @@ export default function ResultReadout({ results, p1El, tol, inc, stage, note, pi
           {note && <div className="note-text">{note}</div>}
         </div>
       )}
-      <div className="readout-caption">{new Date().toLocaleString()}</div>
+      {/* time the survey values were taken (measured_time); a new unsaved survey shows the current time */}
+      <div className="readout-caption">{new Date(measuredAt || Date.now()).toLocaleString()}</div>
       <div className="readout-head">{t('result.asbuiltHeader', { el: fmt(results.asbuiltEl) })}</div>
       <div className="readout-grid">
         <div><span>N</span>{fmt(results.asbuiltN)}</div>
