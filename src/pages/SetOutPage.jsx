@@ -54,6 +54,11 @@ export default function SetOutPage({ session }) {
   const [pileZone, setPileZone] = useState(ALL_ZONES);
   const [stnId, setStnId] = useState(stored?.stnId ?? '');
   const [bsId, setBsId] = useState(stored?.bsId ?? '');
+  // STN / BS can also be typed in by hand (temporary, not saved to the database) - 'db' | 'manual'
+  const [stnMode, setStnMode] = useState(stored?.stnMode ?? 'db');
+  const [bsMode, setBsMode] = useState(stored?.bsMode ?? 'db');
+  const [stnMan, setStnMan] = useState(stored?.stnMan ?? { name: '', n: '', e: '', z: '' });
+  const [bsMan, setBsMan] = useState(stored?.bsMan ?? { name: '', n: '', e: '' });
   const [hi, setHi] = useState(stored?.hi ?? '');
   const [zt, setZt] = useState(stored?.zt ?? '');
   const [ztA, setZtA] = useState(stored?.ztA ?? '');
@@ -113,6 +118,8 @@ export default function SetOutPage({ session }) {
     setPileId(saved?.pileId ?? '');
     setStnId(saved?.stnId ?? '');
     setBsId(saved?.bsId ?? '');
+    setStnMode(saved?.stnMode ?? 'db'); setBsMode(saved?.bsMode ?? 'db');
+    setStnMan(saved?.stnMan ?? { name: '', n: '', e: '', z: '' }); setBsMan(saved?.bsMan ?? { name: '', n: '', e: '' });
     setHi(saved?.hi ?? '');
     setZt(saved?.zt ?? '');
     setZtA(saved?.ztA ?? '');
@@ -125,16 +132,17 @@ export default function SetOutPage({ session }) {
     if (skipNextSaveRef.current) { skipNextSaveRef.current = false; return; }
     const timer = setTimeout(() => {
       try {
-        localStorage.setItem(storageKey, JSON.stringify({ pileId, stnId, bsId, hi, zt, ztA, ztB }));
+        localStorage.setItem(storageKey, JSON.stringify({ pileId, stnId, bsId, stnMode, bsMode, stnMan, bsMan, hi, zt, ztA, ztB }));
       } catch {
         // ignore quota/denied (e.g. private browsing)
       }
     }, 400);
     return () => clearTimeout(timer);
-  }, [storageKey, pileId, stnId, bsId, hi, zt, ztA, ztB]);
+  }, [storageKey, pileId, stnId, bsId, stnMode, bsMode, stnMan, bsMan, hi, zt, ztA, ztB]);
 
   function clearStored() {
-    setPileId(''); setStnId(''); setBsId(''); setHi(''); setZt(''); setZtA(''); setZtB('');
+    setPileId(''); setStnId(''); setBsId(''); setStnMode('db'); setBsMode('db');
+    setStnMan({ name: '', n: '', e: '', z: '' }); setBsMan({ name: '', n: '', e: '' }); setHi(''); setZt(''); setZtA(''); setZtB('');
     try { localStorage.removeItem(storageKey); } catch { /* ignore */ }
   }
 
@@ -150,8 +158,17 @@ export default function SetOutPage({ session }) {
 
   const stnOptions = useMemo(() => benchmarks.filter((b) => b.type === 'STN').map((b) => ({ value: b.id, label: b.name })), [benchmarks]);
   const bsOptions = useMemo(() => benchmarks.map((b) => ({ value: b.id, label: b.name })), [benchmarks]);
-  const stn = benchmarks.find((b) => b.id === stnId) ?? null;
-  const bs = benchmarks.find((b) => b.id === bsId) ?? null;
+  const isNum = (v) => v !== '' && v != null && Number.isFinite(Number(v));
+  const stn = stnMode === 'manual'
+    ? (isNum(stnMan.n) && isNum(stnMan.e) && isNum(stnMan.z)
+      ? { name: stnMan.name.trim() || t('setout.manualStnDefault'), northing: Number(stnMan.n), easting: Number(stnMan.e), elevation: Number(stnMan.z), manual: true }
+      : null)
+    : (benchmarks.find((b) => b.id === stnId) ?? null);
+  const bs = bsMode === 'manual'
+    ? (isNum(bsMan.n) && isNum(bsMan.e)
+      ? { name: bsMan.name.trim() || t('setout.manualBsDefault'), northing: Number(bsMan.n), easting: Number(bsMan.e), manual: true }
+      : null)
+    : (benchmarks.find((b) => b.id === bsId) ?? null);
 
   const ready = !!(pile && stn && bs && hi !== '' && stn.elevation != null);
   const setup = ready ? {
@@ -240,24 +257,34 @@ export default function SetOutPage({ session }) {
             <div><span>{t('designPiles.col.incline')}</span>{pile.incline || '—'}</div>
           </div>
         )}
-        <label className="field">
+        <div className="field">
           <span>{t('setout.stationLabel')}</span>
-          <SearchSelect
-            options={stnOptions}
-            value={stnId}
-            onChange={setStnId}
-            placeholder={t('setout.stationSelectPlaceholder')}
-          />
-        </label>
-        <label className="field">
+          <ModeToggle mode={stnMode} onChange={setStnMode} />
+          {stnMode === 'manual' ? (
+            <ManualPoint value={stnMan} onChange={setStnMan} withZ />
+          ) : (
+            <SearchSelect
+              options={stnOptions}
+              value={stnId}
+              onChange={setStnId}
+              placeholder={t('setout.stationSelectPlaceholder')}
+            />
+          )}
+        </div>
+        <div className="field">
           <span>{t('setout.backsightLabel')}</span>
-          <SearchSelect
-            options={bsOptions}
-            value={bsId}
-            onChange={setBsId}
-            placeholder={t('setout.backsightSelectPlaceholder')}
-          />
-        </label>
+          <ModeToggle mode={bsMode} onChange={setBsMode} />
+          {bsMode === 'manual' ? (
+            <ManualPoint value={bsMan} onChange={setBsMan} />
+          ) : (
+            <SearchSelect
+              options={bsOptions}
+              value={bsId}
+              onChange={setBsId}
+              placeholder={t('setout.backsightSelectPlaceholder')}
+            />
+          )}
+        </div>
         <label className="field">
           <span>{t('setout.hiLabel')}</span>
           <input inputMode="decimal" value={hi} onChange={(e) => setHi(e.target.value)} placeholder="0.000" />
@@ -311,6 +338,33 @@ export default function SetOutPage({ session }) {
   );
 }
 
+function ModeToggle({ mode, onChange }) {
+  const { t } = useTranslation();
+  return (
+    <div className="zone-filter">
+      <button type="button" className={`zone-pill${mode === 'db' ? ' active' : ''}`} onClick={() => onChange('db')}>{t('setout.modeDb')}</button>
+      <button type="button" className={`zone-pill${mode === 'manual' ? ' active' : ''}`} onClick={() => onChange('manual')}>{t('setout.modeManual')}</button>
+    </div>
+  );
+}
+
+// Coordinates typed in by hand - used for this calculation only, never saved to the database.
+function ManualPoint({ value, onChange, withZ }) {
+  const { t } = useTranslation();
+  const set = (k) => (e) => onChange({ ...value, [k]: e.target.value });
+  return (
+    <div>
+      <input value={value.name} onChange={set('name')} placeholder={t('setout.manualNamePh')} />
+      <div className={withZ ? 'grid3' : 'grid2'} style={{ marginTop: 6 }}>
+        <label className="field"><span>N</span><input inputMode="decimal" value={value.n} onChange={set('n')} placeholder="0.000" /></label>
+        <label className="field"><span>E</span><input inputMode="decimal" value={value.e} onChange={set('e')} placeholder="0.000" /></label>
+        {withZ && <label className="field"><span>Z</span><input inputMode="decimal" value={value.z} onChange={set('z')} placeholder="0.000" /></label>}
+      </div>
+      <p className="hint">{t('setout.manualHint')}</p>
+    </div>
+  );
+}
+
 function SetoutSummaryCard({ pile, inc, stn, bs, hi, setup, bsAzimuth }) {
   const { t } = useTranslation();
   const inclineBadge = inc?.vertical ? t('common.incline.vertBadge') : t('common.incline.battBadge', { ratio: inc.ratio });
@@ -330,12 +384,18 @@ function SetoutSummaryCard({ pile, inc, stn, bs, hi, setup, bsAzimuth }) {
       </div>
       <div className="setout-summary-divider" />
       <div className="setout-summary-row6 mono">
-        <div><span>{t('setout.stationLabel')}</span>{stn.name}</div>
-        <div><span>{t('setout.backsightLabel')}</span>{bs.name}</div>
+        <div><span>{t('setout.stationLabel')}</span>{stn.name}{stn.manual ? ` (${t('setout.manualTag')})` : ''}</div>
+        <div><span>{t('setout.backsightLabel')}</span>{bs.name}{bs.manual ? ` (${t('setout.manualTag')})` : ''}</div>
         <div><span>{t('setout.bsAzimuth')}</span>{toDMS(bsAzimuth)}</div>
         <div><span>{t('setout.hiLabel')}</span>{fmt(num(hi))}</div>
         <div><span>{t('setout.stationElev')}</span>{fmt(stn.elevation)}</div>
         <div><span>{t('setout.instrumentElev')}</span>{fmt(setup.Z_I)}</div>
+      </div>
+      <div className="setout-summary-row4 mono">
+        <div><span>{t('setout.stnN')}</span>{fmt(stn.northing)}</div>
+        <div><span>{t('setout.stnE')}</span>{fmt(stn.easting)}</div>
+        <div><span>{t('setout.bsN')}</span>{fmt(bs.northing)}</div>
+        <div><span>{t('setout.bsE')}</span>{fmt(bs.easting)}</div>
       </div>
     </section>
   );
