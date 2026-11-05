@@ -61,5 +61,17 @@ eq('slope from results', slopeFromResults({ slope: 5.2 }), 5.2);
 eq('slope from tilt', slopeFromResults({ tiltDeg: 45 }), 1, 1e-12);
 eq('slope none', slopeFromResults(null), null);
 
+// products shown in the formula, each length x f rounded to 3 dp (BD3-3, 05-Nov-2026)
+{
+  const r = computePileLevels({ hi: 5.15, mark: 34.803, seabed: -16.44, V: 4.825, L: 37.2, Lc: 27.2 });
+  eq('BD3-3 f', r.f, 0.979);
+  eq('BD3-3 mark x f', r.markF, 34.072);
+  eq('BD3-3 L x f', r.LF, 36.419);
+  eq('BD3-3 Lc x f', r.LcF, 26.629);
+  eq('BD3-3 tip', r.tip, -28.922);
+  eq('BD3-3 top', r.top, 7.497);
+  eq('BD3-3 coating bottom', r.coatingBottom, -19.132);
+}
+
 if (fail) { console.log(`\n${fail} FAILED`); process.exit(1); }
 console.log('\nall pile-level tests passed');

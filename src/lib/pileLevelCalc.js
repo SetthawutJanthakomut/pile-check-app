@@ -60,13 +60,19 @@ export function computePileLevels({ hi, mark, seabed, V, L, Lc, embedMin = 2.0 }
   const f = roundF(fx.vertPerAlong);   // 3-decimal factor, as the record form
   // hand method of the record form: every product (length × f) rounded to 3 decimals, then added
   const r3 = (x) => Math.round((x + (x >= 0 ? 1e-9 : -1e-9)) * 1000) / 1000;
-  const tip = r3(Number(hi) - r3(Number(mark) * f));
-  const top = isNum(L) ? r3(tip + r3(Number(L) * f)) : null;
-  const coatingBottom = top != null && isNum(Lc) ? r3(top - r3(Number(Lc) * f)) : null;
+  const markF = r3(Number(mark) * f);
+  const LF = isNum(L) ? r3(Number(L) * f) : null;
+  const LcF = isNum(Lc) ? r3(Number(Lc) * f) : null;
+  const tip = r3(Number(hi) - markF);
+  const top = LF != null ? r3(tip + LF) : null;
+  const coatingBottom = top != null && LcF != null ? r3(top - LcF) : null;
   const embed = coatingBottom != null && isNum(seabed) ? Number(seabed) - coatingBottom : null;
   return {
     factors: fx,
     f,
+    markF,                                         // products rounded to 3 dp, shown in the formula
+    LF,
+    LcF,
     tip,
     top,
     coatingBottom,

@@ -253,8 +253,8 @@ export default function PileLevelPage({ session, role }) {
           </div>
           <div className="readout-notes note-text">
             {t('levels.formula', {
-              hi: fmt(num(hi)), mark: fmt(num(mark)), f: fmt(result.f, 3), tip: sgn(result.tip),
-              L: fmt(pile.length_m), top: sgn(result.top), Lc: fmt(pile.coating_length_m), cb: sgn(result.coatingBottom),
+              hi: fmt(num(hi)), mark: fmt(num(mark)), f: fmt(result.f, 3), markF: fmt(result.markF), tip: sgn(result.tip),
+              L: fmt(pile.length_m), LF: result.LF == null ? '—' : fmt(result.LF), top: sgn(result.top), Lc: fmt(pile.coating_length_m), LcF: result.LcF == null ? '—' : fmt(result.LcF), cb: sgn(result.coatingBottom),
               sb: seabed === '' ? '—' : sgn(num(seabed)), emb: result.embed == null ? '—' : fmt(result.embed),
             })}
           </div>
